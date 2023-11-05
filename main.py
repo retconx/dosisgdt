@@ -3,8 +3,8 @@ import gdt, gdtzeile, gdttoolsL
 import xml.etree.ElementTree as ElementTree
 from fpdf import FPDF, enums
 import class_medikament, class_dosierungsplan, dialogUeberDosisGdt, dialogEinstellungenGdt, dialogEinstellungenAllgemein, dialogEinstellungenLanrLizenzschluessel, dialogEinstellungenImportExport
-from PySide6.QtCore import Qt, QSize, QDate, QTime, QTranslator, QLibraryInfo, QEvent
-from PySide6.QtGui import QFont, QAction, QKeySequence, QIcon, QDesktopServices, QKeyEvent
+from PySide6.QtCore import Qt, QSize, QDate, QTranslator, QLibraryInfo
+from PySide6.QtGui import QFont, QAction, QKeySequence, QIcon, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -87,17 +87,9 @@ class MainWindow(QMainWindow):
         top = screenHoehe / 2 - mainwindowHoehe / 2
         self.setGeometry(left, top, mainwindowBreite, mainwindowHoehe)
     
-    def setPreFormular(self, preMedikament:class_medikament.Medikament, preStartdosis:float, preStartdauer:int, preReduktionUm:list, preTage:list, preBis:list, preMaxTablettenzahl:int):
-        self.preMedikament = preMedikament
-        self.preStartdosis = preStartdosis
-        self.preStartdauer = preStartdauer
-        self.preReduktionUm = preReduktionUm
-        self.preTage = preTage
-        self.preBis = preBis
-        self.preMaxTablettenzahl = preMaxTablettenzahl
-    
     def setPreFormularXml(self, xmlDateipdad:str):
         try:
+            self.setCursor(Qt.CursorShape.WaitCursor)
             baum = ElementTree.parse(xmlDateipdad)
             dosierungsplanElement = baum.getroot()
             medikamentElement = dosierungsplanElement.find("medikament")
@@ -124,9 +116,26 @@ class MainWindow(QMainWindow):
                 bis.append(float(str(aenderungElement.findtext("bis"))))
             maxTablettenzahl = int(str(dosierungsplanElement.findtext("maxTablettenzahl")))
             medikament = class_medikament.Medikament(medikamentenname, einheit, darreichungsform, dosenProEinheit, teilbarkeiten)
-            self.setPreFormular(medikament, startdosis, startdauer, reduktionUm, tage, bis, maxTablettenzahl)
+
+            self.lineEditMediName.setText(medikament.name)
+            self.comboBoxMediEinheit.setCurrentText(medikament.einheit.value)
+            self.comboBoxMediDarreichungsform.setCurrentText(medikament.darreichungsform.value)
+            for i in range(len(medikament.dosenProEinheit)):
+                self.lineEditDosisProEinheit[i].setText(str(medikament.dosenProEinheit[i]))
+            for i in range(len(medikament.teilbarkeiten)):
+                self.comboBoxDosisTeilbarkeit[i].setCurrentText(medikament.teilbarkeiten[i].value)
+            self.lineEditStartdosis.setText(str(startdosis))
+            self.lineEditStartTage.setText(str(startdauer))
+            for i in range(len(reduktionUm)):
+                self.lineEditReduktionUm[i].setText(str(reduktionUm[i]))
+                self.lineEditTage[i].setText(str(tage[i]))
+                self.lineEditBis[i].setText(str(bis[i]))
+            self.lineEditMaximaleTablettenzahl.setText(str(maxTablettenzahl))
+            self.setStatusMessage("Vorlage " + os.path.basename(xmlDateipdad) + " geladen")
+            logger.logger.info("Eingabeformular vor-ausgefüllt")
+            self.setCursor(Qt.CursorShape.ArrowCursor)
         except Exception as e:
-            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Fehler beim Laden des Standard-Dosierungsplans (" + xmlDateipdad + "): " + e.args[1], QMessageBox.StandardButton.Ok)
+            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Fehler beim Laden der Vorlage (" + xmlDateipdad + "): " + e.args[1], QMessageBox.StandardButton.Ok)
             mb.exec()
 
     def __init__(self):
@@ -542,23 +551,7 @@ class MainWindow(QMainWindow):
             if self.defaultXml != "":
                 self.setPreFormularXml(os.path.join(basedir, "vorlagen", self.defaultXml))
 
-            if self.preMedikament != None:
-                self.lineEditMediName.setText(self.preMedikament.name)
-                self.comboBoxMediEinheit.setCurrentText(self.preMedikament.einheit.value)
-                self.comboBoxMediDarreichungsform.setCurrentText(self.preMedikament.darreichungsform.value)
-                for i in range(len(self.preMedikament.dosenProEinheit)):
-                    self.lineEditDosisProEinheit[i].setText(str(self.preMedikament.dosenProEinheit[i]))
-                for i in range(len(self.preMedikament.teilbarkeiten)):
-                    self.comboBoxDosisTeilbarkeit[i].setCurrentText(self.preMedikament.teilbarkeiten[i].value)
-                self.lineEditStartdosis.setText(str(self.preStartdosis))
-                self.lineEditStartTage.setText(str(self.preStartdauer))
-                for i in range(len(self.preReduktionUm)):
-                    self.lineEditReduktionUm[i].setText(str(self.preReduktionUm[i]))
-                    self.lineEditTage[i].setText(str(self.preTage[i]))
-                    self.lineEditBis[i].setText(str(self.preBis[i]))
-                self.lineEditMaximaleTablettenzahl.setText(str(self.preMaxTablettenzahl))
-                self.setStatusMessage("Standard-Dosierungsplan " + self.defaultXml + " geladen")
-                logger.logger.info("Eingabeformular vor-ausgefüllt")
+            
 
         #Menü
         menubar = self.menuBar()
@@ -571,6 +564,9 @@ class MainWindow(QMainWindow):
         updateAction.setMenuRole(QAction.MenuRole.ApplicationSpecificRole)
         updateAction.triggered.connect(self.updatePruefung) # type: ignore
         updateAction.setShortcut(QKeySequence("Ctrl+U"))
+        vorlagenMenu = menubar.addMenu("Vorlagen")
+        vorlagenMenuPolymyalgiaRheumaticaAction = QAction("Polymyalgia rheumatica", self)
+        vorlagenMenuPolymyalgiaRheumaticaAction.triggered.connect(self.vorlagenMenuPolymyalgiaRheumatica) # type: ignore
         einstellungenMenu = menubar.addMenu("Einstellungen")
         einstellungenAllgemeinAction = QAction("Allgemeine Einstellungen", self)
         einstellungenAllgemeinAction.triggered.connect(lambda neustartfrage: self.einstellungenAllgemein(True)) # type: ignore
@@ -602,6 +598,7 @@ class MainWindow(QMainWindow):
         
         anwendungMenu.addAction(aboutAction)
         anwendungMenu.addAction(updateAction)
+        vorlagenMenu.addAction(vorlagenMenuPolymyalgiaRheumaticaAction)
         einstellungenMenu.addAction(einstellungenAllgemeinAction)
         einstellungenMenu.addAction(einstellungenGdtAction)
         einstellungenMenu.addAction(einstellungenErweiterungenAction)
@@ -900,8 +897,21 @@ class MainWindow(QMainWindow):
                             text += "<td>" + dosis + "</td><td>" + tablettenaufteilung + "</td></tr>"
                     j += 1
                 text += "</table>"
+                text += "<table style='margin-top:10px;border:none;border-collapse:collapse'>"
+                text +=" <tr><td colspan='2'><b>" + medikament.name + "-Verbrauch:</b></td></tr>"
+                tablettenGesamtmengen = class_dosierungsplan.Dosierungsplan.getTablettenGesamtmengen(dp, medikament)
+                if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
+                    for tablette in tablettenGesamtmengen:
+                        if medikament.darreichungsform == class_medikament.Darreichungsform.TABLETTE:
+                            text += "<tr style='font-weight:normal'><td>" + tablette + " " + medikament.einheit.value + ":</td><td style='text-align:right'>" + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück</td></tr>"
+                        else:
+                            text += "<tr style='font-weight:normal'><td>" + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Tropfen (" + str(tablettenGesamtmengen[tablette] * float(tablette)).replace(".",",") + " " + medikament.einheit.value + ")"
+                else:
+                    text+= "<tr><td colspan='2' style='font-weight:normal;color:rgb(200,0,0)'>Für diese Funktion ist eine gültige LANR/Lizenzschlüsselkombination erforderlich.</td></tr>"
+                text += "</table>"
                 self.textEditVorschau.clear()
                 self.textEditVorschau.setHtml(text)
+
 
     def pushButtonSendenClicked(self):
         untdatDatetime = datetime.datetime.now()
@@ -999,7 +1009,7 @@ class MainWindow(QMainWindow):
             if self.configIni["Allgemein"]["pdferstellen"] == "1" and gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
                 gd.addZeile("6302", "dosierungsplan")
                 gd.addZeile("6303", "pdf")
-                gd.addZeile("6304", "Dosierungsplan")
+                gd.addZeile("6304", self.configIni["Allgemein"]["pdfbezeichnung"])
                 gd.addZeile("6305", os.path.join(basedir, "pdf/dosierungsplan_temp.pdf"))
             gd.addZeile("6220", medikament.name + "-Dosierungsplan")
             gd.addZeile("6226", str(len(dp)))
@@ -1020,6 +1030,10 @@ class MainWindow(QMainWindow):
             mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Der Dosierungsplan kann nicht gesendet werden, da das Formular Fehler enthält.", QMessageBox.StandardButton.Ok)
             mb.setTextFormat(Qt.TextFormat.RichText)
             mb.exec()
+
+    def vorlagenMenuPolymyalgiaRheumatica(self):
+        self.setPreFormularXml(os.path.join(basedir, "vorlagen/polymyalgia-rheumatica.xml"))
+        self.lineEditMediName.setText(self.preMedikament.name)
         
     def einstellungenAllgemein(self, neustartfrage = False):
         de = dialogEinstellungenAllgemein.EinstellungenAllgemein(self.configPath)
@@ -1086,8 +1100,8 @@ class MainWindow(QMainWindow):
         if de.exec() == 1:
             pass    
 
-    def dosisgdtWiki(self):
-        pass
+    def dosisgdtWiki(self, link):
+        QDesktopServices.openUrl("https://www.github.com/retconx/dosisgdt/wiki")
 
     def logExportieren(self):
         if (os.path.exists(os.path.join(basedir, "log"))):

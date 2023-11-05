@@ -28,6 +28,11 @@ class Dosierungsplan():
         self.aenderungen = aenderungen
 
     def dosisIstHerstellbar(self, dosis:float):
+        """
+        Prüft, ob eine Tablettendosis mit den angegebenen Tablettendosierungen herstellbar ist
+        Return:
+            True oder False
+        """
         herstellbar = False
         for verfuegbareDosis in self.medikament.get_verfuegbareDosen():
             herstellbar = (dosis % verfuegbareDosis == 0)
@@ -36,6 +41,9 @@ class Dosierungsplan():
         return herstellbar
     
     def get_dosisMasken(self, wert1:str, wert2:str, anzahlDosen:int):
+        """
+        Gibt eine Bitmaske zurück, die für die Berechnung der Tablettendosis benötigt wird
+        """
         maxWert = pow(2, anzahlDosen)            
         masken = []
         for i in range (maxWert):
@@ -46,6 +54,11 @@ class Dosierungsplan():
         return masken
     
     def get_tablettendosis(self, tagesdosis:float):
+        """
+        Gibt ein Dictionary mit jeweils key: Tablettendosierung / value: Tablettenanzahl für eine Tagesdosis zurück
+        Return:
+            Z. B. {"20" : 2, "5" : 2.5, "2" : 0}
+        """
         maskenwerte = [(1,2), (1,4), (2,4)]
         tablettenverteilung = {}
         dosisGefunden = False
@@ -67,9 +80,9 @@ class Dosierungsplan():
                     tempdosis = tagesdosis
                     i = 0
                     for dosisProEinheitMaskiert in dosenProEinheitMaskiert:
-                        tablettenverteilung[str(dosisProEinheitMaskiert * self.medikament.dosenProEinheit[i] / dosisProEinheitMaskiert)] = 0
+                        tablettenverteilung[str(self.medikament.dosenProEinheit[i])] = 0
                         if tempdosis / dosisProEinheitMaskiert >= 1 and tempdosis / self.medikament.dosenProEinheit[i] <= self.maximaleTablettenzahlProEinheit:
-                            tablettenverteilung[str(dosisProEinheitMaskiert * self.medikament.dosenProEinheit[i] / dosisProEinheitMaskiert)] += int(tempdosis / dosisProEinheitMaskiert) / (self.medikament.dosenProEinheit[i] / dosisProEinheitMaskiert)
+                            tablettenverteilung[str(self.medikament.dosenProEinheit[i])] += int(tempdosis / dosisProEinheitMaskiert) / (self.medikament.dosenProEinheit[i] / dosisProEinheitMaskiert)
                             tempdosis = tempdosis % dosisProEinheitMaskiert
                         i += 1
                     if tempdosis == 0:
@@ -103,6 +116,9 @@ class Dosierungsplan():
     #         return morgensAbends
 
     def get_dosierungsplan(self):
+        """
+        Gibt einen Dosierungsplan als Dictionary mit den keys vonDatum, bisDatum, dosis und tabletten zurück, wobei tabletten wiederum ein von self.get_tablettendosis zurückgegebenes Dictionary ist
+        """
         zeilen = []
         tempDosis = self.startdosis
         tempDauer = self. startdauer
@@ -134,7 +150,33 @@ class Dosierungsplan():
                 raise DosierungsfehlerException("Die Dosis " + str(tempDosis + aenderung.aenderungsdosis).replace(".",",") + " " + self.medikament.einheit.value + " ist nicht herstellbar (Änderungsanweisung Nr. " + str(i) +").", i)
             i += 1
         return zeilen
-
+    
+    @staticmethod
+    def getTablettenGesamtmengen(dosierungsplanzeilen, medikament):
+        """
+        Gibt den Medikamentenverbrauch eines Dosierungsplans zurück
+        Parameter:
+            Ergebnis von get_dosierungsplan
+        Return:
+            Dictionary mit jeweils key: Medikamentendosis / value: Anzahl Tabletten/Tropfen
+        """
+        tablettenGesamtmengen = {}
+        for dosisProEinheit in medikament.dosenProEinheit:
+            tablettenGesamtmengen[str(dosisProEinheit)] = 0
+        for zeile in dosierungsplanzeilen:
+            vonJahr = int(zeile["vonDatum"][6:10])
+            vonMonat = int(zeile["vonDatum"][3:5])
+            vonTag = int(zeile["vonDatum"][0:2])
+            bisJahr = int(zeile["bisDatum"][6:10])
+            bisMonat = int(zeile["bisDatum"][3:5])
+            bisTag = int(zeile["bisDatum"][0:2])
+            vonDatum = datetime.date(vonJahr, vonMonat, vonTag)
+            bisDatum = datetime.date(bisJahr, bisMonat, bisTag)
+            delta = bisDatum - vonDatum
+            anzahlTage = delta.days + 1
+            for tablette in zeile["tabletten"]:
+                tablettenGesamtmengen[tablette] += zeile["tabletten"][tablette] * anzahlTage
+        return tablettenGesamtmengen
 
 class Aenderung():
     def __init__(self, aenderungsdosis:float, tage:int, zieldosis:float):
@@ -145,11 +187,11 @@ class Aenderung():
 if __name__ == "__main__":
     medikamentenname = "Prednisolon"
     einheit = class_medikament.Einheit.MG
-    darreichungsform = class_medikament.Darreichungsform.TROPFEN
-    dosenProEinheit = [1]
+    darreichungsform = class_medikament.Darreichungsform.TABLETTE
+    dosenProEinheit = [20,5,2]
     teilbarkeiten = [class_medikament.Teilbarkeit.VIERTELBAR, class_medikament.Teilbarkeit.HALBIERBAR, class_medikament.Teilbarkeit.HALBIERBAR]
     einschleichen = False
-    dosenProTag = 100
+    dosenProTag = 2
     startDatum = "23102023"
     startDosis = 25
     startDosisDauer = 7
@@ -158,9 +200,10 @@ if __name__ == "__main__":
     dosierungsplan = Dosierungsplan(einschleichen, medikament, dosenProTag, False, True)
     dosierungsplan.set_start(startDatum, startDosis, startDosisDauer)
     aenderung = []
-    aenderung.append(Aenderung(-2, 7, 10))
+    aenderung.append(Aenderung(-2.5, 7, 10))
     aenderung.append(Aenderung(-1, 28, 0))
     dosierungsplan.set_aenderung(aenderung)
 
     for zeile in dosierungsplan.get_dosierungsplan():
         print(zeile)
+    print(Dosierungsplan.getTablettenGesamtmengen(dosierungsplan.get_dosierungsplan(), medikament))
