@@ -239,7 +239,7 @@ class MainWindow(QMainWindow):
                     self.configIni.write(configfile)
                 self.version = self.configIni["Allgemein"]["version"]
                 logger.logger.info("Version auf " + self.version + " aktualisiert")
-                mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "DosisGDT wurde erfolgreich auf Version " + self.version + " aktualisiert.<br />Falls DosisGDT Ihren Praxisalltag erleichtert, würde ich mich über eine kleine Anerkennung freuen. Unter <a href='http://www.gdttools.de/#spende'>www.gdtools.de</a> finden Sie Informationen über die Möglichkeit einer Spende. Dankeschön! &#x1f609;", QMessageBox.StandardButton.Ok)
+                mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "DosisGDT wurde erfolgreich auf Version " + self.version + " aktualisiert.", QMessageBox.StandardButton.Ok)
                 mb.setTextFormat(Qt.TextFormat.RichText)
                 mb.exec()
         except:
@@ -610,6 +610,14 @@ class MainWindow(QMainWindow):
         hilfeMenu.addAction(hilfeUeberAction)
         hilfeMenu.addSeparator()
         hilfeMenu.addAction(hilfeLogExportieren)
+
+        # Updateprüfung auf Github
+        try:
+            self.updatePruefung(meldungNurWennUpdateVerfuegbar=True)
+        except Exception as e:
+            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Updateprüfung nicht möglich.\nBitte überprüfen Sie Ihre Internetverbindung.", QMessageBox.StandardButton.Ok)
+            mb.exec()
+            logger.logger.warning("Updateprüfung nicht möglich: " + str(e))
 
     def setStatusMessage(self, message = ""):
         self.statusleiste.clearMessage()
