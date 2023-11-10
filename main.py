@@ -551,73 +551,73 @@ class MainWindow(QMainWindow):
             if self.defaultXml != "":
                 self.setPreFormularXml(os.path.join(basedir, "vorlagen", self.defaultXml))
 
+            #Menü
+            menubar = self.menuBar()
+            anwendungMenu = menubar.addMenu("")
+            aboutAction = QAction(self)
+            aboutAction.setMenuRole(QAction.MenuRole.AboutRole)
+            aboutAction.triggered.connect(self.ueberDosisGdt) # type: ignore
+            aboutAction.setShortcut(QKeySequence("Ctrl+Ü"))
+            updateAction = QAction("Auf Update prüfen", self)
+            updateAction.setMenuRole(QAction.MenuRole.ApplicationSpecificRole)
+            updateAction.triggered.connect(self.updatePruefung) # type: ignore
+            updateAction.setShortcut(QKeySequence("Ctrl+U"))
+            vorlagenMenu = menubar.addMenu("Vorlagen")
+            vorlagenMenuPolymyalgiaRheumaticaAction = QAction("Polymyalgia rheumatica", self)
+            vorlagenMenuPolymyalgiaRheumaticaAction.triggered.connect(self.vorlagenMenuPolymyalgiaRheumatica) # type: ignore
+            einstellungenMenu = menubar.addMenu("Einstellungen")
+            einstellungenAllgemeinAction = QAction("Allgemeine Einstellungen", self)
+            einstellungenAllgemeinAction.triggered.connect(lambda neustartfrage: self.einstellungenAllgemein(True)) # type: ignore
+            einstellungenAllgemeinAction.setShortcut(QKeySequence("Ctrl+E"))
+            einstellungenGdtAction = QAction("GDT-Einstellungen", self)
+            einstellungenGdtAction.triggered.connect(lambda neustartfrage: self.einstellungenGdt(True)) # type: ignore
+            einstellungenGdtAction.setShortcut(QKeySequence("Ctrl+G"))
+            einstellungenErweiterungenAction = QAction("LANR/Lizenzschlüssel", self)
+            einstellungenErweiterungenAction.triggered.connect(lambda neustartfrage: self.einstellungenLanrLizenzschluessel(True)) # type: ignore
+            einstellungenErweiterungenAction.setShortcut(QKeySequence("Ctrl+L"))
+            einstellungenImportExportAction = QAction("Im- /Exportieren", self)
+            einstellungenImportExportAction.triggered.connect(self.einstellungenImportExport) # type: ignore
+            einstellungenImportExportAction.setShortcut(QKeySequence("Ctrl+I"))
+            einstellungenImportExportAction.setMenuRole(QAction.MenuRole.NoRole)
+            hilfeMenu = menubar.addMenu("Hilfe")
+            hilfeWikiAction = QAction("DosisGDT Wiki", self)
+            hilfeWikiAction.triggered.connect(self.dosisgdtWiki) # type: ignore
+            hilfeWikiAction.setShortcut(QKeySequence("Ctrl+W"))
+            hilfeUpdateAction = QAction("Auf Update prüfen", self)
+            hilfeUpdateAction.triggered.connect(self.updatePruefung) # type: ignore
+            hilfeUpdateAction.setShortcut(QKeySequence("Ctrl+U"))
+            hilfeUeberAction = QAction("Über DosisGDT", self)
+            hilfeUeberAction.setMenuRole(QAction.MenuRole.NoRole)
+            hilfeUeberAction.triggered.connect(self.ueberDosisGdt) # type: ignore
+            hilfeUeberAction.setShortcut(QKeySequence("Ctrl+Ü"))
+            hilfeLogExportieren = QAction("Log-Verzeichnis exportieren", self)
+            hilfeLogExportieren.triggered.connect(self.logExportieren) # type: ignore
+            hilfeLogExportieren.setShortcut(QKeySequence("Ctrl+D"))
             
+            anwendungMenu.addAction(aboutAction)
+            anwendungMenu.addAction(updateAction)
+            vorlagenMenu.addAction(vorlagenMenuPolymyalgiaRheumaticaAction)
+            einstellungenMenu.addAction(einstellungenAllgemeinAction)
+            einstellungenMenu.addAction(einstellungenGdtAction)
+            einstellungenMenu.addAction(einstellungenErweiterungenAction)
+            einstellungenMenu.addAction(einstellungenImportExportAction)
+            hilfeMenu.addAction(hilfeWikiAction)
+            hilfeMenu.addSeparator()
+            hilfeMenu.addAction(hilfeUpdateAction)
+            hilfeMenu.addSeparator()
+            hilfeMenu.addAction(hilfeUeberAction)
+            hilfeMenu.addSeparator()
+            hilfeMenu.addAction(hilfeLogExportieren)
 
-        #Menü
-        menubar = self.menuBar()
-        anwendungMenu = menubar.addMenu("")
-        aboutAction = QAction(self)
-        aboutAction.setMenuRole(QAction.MenuRole.AboutRole)
-        aboutAction.triggered.connect(self.ueberDosisGdt) # type: ignore
-        aboutAction.setShortcut(QKeySequence("Ctrl+Ü"))
-        updateAction = QAction("Auf Update prüfen", self)
-        updateAction.setMenuRole(QAction.MenuRole.ApplicationSpecificRole)
-        updateAction.triggered.connect(self.updatePruefung) # type: ignore
-        updateAction.setShortcut(QKeySequence("Ctrl+U"))
-        vorlagenMenu = menubar.addMenu("Vorlagen")
-        vorlagenMenuPolymyalgiaRheumaticaAction = QAction("Polymyalgia rheumatica", self)
-        vorlagenMenuPolymyalgiaRheumaticaAction.triggered.connect(self.vorlagenMenuPolymyalgiaRheumatica) # type: ignore
-        einstellungenMenu = menubar.addMenu("Einstellungen")
-        einstellungenAllgemeinAction = QAction("Allgemeine Einstellungen", self)
-        einstellungenAllgemeinAction.triggered.connect(lambda neustartfrage: self.einstellungenAllgemein(True)) # type: ignore
-        einstellungenAllgemeinAction.setShortcut(QKeySequence("Ctrl+E"))
-        einstellungenGdtAction = QAction("GDT-Einstellungen", self)
-        einstellungenGdtAction.triggered.connect(lambda neustartfrage: self.einstellungenGdt(True)) # type: ignore
-        einstellungenGdtAction.setShortcut(QKeySequence("Ctrl+G"))
-        einstellungenErweiterungenAction = QAction("LANR/Lizenzschlüssel", self)
-        einstellungenErweiterungenAction.triggered.connect(lambda neustartfrage: self.einstellungenLanrLizenzschluessel(True)) # type: ignore
-        einstellungenErweiterungenAction.setShortcut(QKeySequence("Ctrl+L"))
-        einstellungenImportExportAction = QAction("Im- /Exportieren", self)
-        einstellungenImportExportAction.triggered.connect(self.einstellungenImportExport) # type: ignore
-        einstellungenImportExportAction.setShortcut(QKeySequence("Ctrl+I"))
-        einstellungenImportExportAction.setMenuRole(QAction.MenuRole.NoRole)
-        hilfeMenu = menubar.addMenu("Hilfe")
-        hilfeWikiAction = QAction("DosisGDT Wiki", self)
-        hilfeWikiAction.triggered.connect(self.dosisgdtWiki) # type: ignore
-        hilfeWikiAction.setShortcut(QKeySequence("Ctrl+W"))
-        hilfeUpdateAction = QAction("Auf Update prüfen", self)
-        hilfeUpdateAction.triggered.connect(self.updatePruefung) # type: ignore
-        hilfeUpdateAction.setShortcut(QKeySequence("Ctrl+U"))
-        hilfeUeberAction = QAction("Über DosisGDT", self)
-        hilfeUeberAction.setMenuRole(QAction.MenuRole.NoRole)
-        hilfeUeberAction.triggered.connect(self.ueberDosisGdt) # type: ignore
-        hilfeUeberAction.setShortcut(QKeySequence("Ctrl+Ü"))
-        hilfeLogExportieren = QAction("Log-Verzeichnis exportieren", self)
-        hilfeLogExportieren.triggered.connect(self.logExportieren) # type: ignore
-        hilfeLogExportieren.setShortcut(QKeySequence("Ctrl+D"))
-        
-        anwendungMenu.addAction(aboutAction)
-        anwendungMenu.addAction(updateAction)
-        vorlagenMenu.addAction(vorlagenMenuPolymyalgiaRheumaticaAction)
-        einstellungenMenu.addAction(einstellungenAllgemeinAction)
-        einstellungenMenu.addAction(einstellungenGdtAction)
-        einstellungenMenu.addAction(einstellungenErweiterungenAction)
-        einstellungenMenu.addAction(einstellungenImportExportAction)
-        hilfeMenu.addAction(hilfeWikiAction)
-        hilfeMenu.addSeparator()
-        hilfeMenu.addAction(hilfeUpdateAction)
-        hilfeMenu.addSeparator()
-        hilfeMenu.addAction(hilfeUeberAction)
-        hilfeMenu.addSeparator()
-        hilfeMenu.addAction(hilfeLogExportieren)
-
-        # Updateprüfung auf Github
-        try:
-            self.updatePruefung(meldungNurWennUpdateVerfuegbar=True)
-        except Exception as e:
-            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Updateprüfung nicht möglich.\nBitte überprüfen Sie Ihre Internetverbindung.", QMessageBox.StandardButton.Ok)
-            mb.exec()
-            logger.logger.warning("Updateprüfung nicht möglich: " + str(e))
+            # Updateprüfung auf Github
+            try:
+                self.updatePruefung(meldungNurWennUpdateVerfuegbar=True)
+            except Exception as e:
+                mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Updateprüfung nicht möglich.\nBitte überprüfen Sie Ihre Internetverbindung.", QMessageBox.StandardButton.Ok)
+                mb.exec()
+                logger.logger.warning("Updateprüfung nicht möglich: " + str(e))
+        else:
+            sys.exit()
 
     def setStatusMessage(self, message = ""):
         self.statusleiste.clearMessage()
