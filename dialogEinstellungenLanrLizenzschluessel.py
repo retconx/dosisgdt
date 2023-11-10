@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLineEdit,
     QMessageBox,
+    QLabel
 )
 
 reLanr = "^\\d{9}$"
@@ -46,6 +47,9 @@ class EinstellungenProgrammerweiterungen(QDialog):
         self.lineEditLizenzschluessel.setStyleSheet("font-weight:normal")
         groupboxLayoutLizenzschluessel.addWidget(self.lineEditLizenzschluessel)
         groupboxLizenzschluessel.setLayout(groupboxLayoutLizenzschluessel)
+        labelKeinLizenzschluessel = QLabel("Hinweis:\nBesitzen Sie keinen Lizenzschlüssel, lassen Sie bitte beide Textfelder leer.")
+        labelKeinLizenzschluessel.setStyleSheet("font-weight:normal")
+        dialogLayoutV.addWidget(labelKeinLizenzschluessel)
         dialogLayoutV.addWidget(groupboxLanr)
         dialogLayoutV.addWidget(groupboxLizenzschluessel)
         dialogLayoutV.addWidget(self.buttonBox)
