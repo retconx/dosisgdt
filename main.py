@@ -2,7 +2,7 @@ import sys, configparser, os, datetime, shutil,logger, re
 import gdt, gdtzeile, gdttoolsL
 import xml.etree.ElementTree as ElementTree
 from fpdf import FPDF, enums
-import class_medikament, class_dosierungsplan, dialogUeberDosisGdt, dialogEinstellungenGdt, dialogEinstellungenAllgemein, dialogEinstellungenLanrLizenzschluessel, dialogEinstellungenImportExport
+import class_medikament, class_dosierungsplan, dialogUeberDosisGdt, dialogEinstellungenGdt, dialogEinstellungenAllgemein, dialogEinstellungenLanrLizenzschluessel, dialogEinstellungenImportExport, dialogVorlagenVerwalten
 from PySide6.QtCore import Qt, QSize, QDate, QTranslator, QLibraryInfo
 from PySide6.QtGui import QFont, QAction, QKeySequence, QIcon, QDesktopServices
 from PySide6.QtWidgets import (
@@ -22,7 +22,8 @@ from PySide6.QtWidgets import (
     QComboBox,
     QMessageBox,
     QTextEdit,
-    QStatusBar
+    QStatusBar,
+    QFileDialog
 )
 import requests
 
@@ -186,7 +187,18 @@ class MainWindow(QMainWindow):
         self.defaultXml = self.configIni["Allgemein"]["defaultxml"]
 
         # Nachträglich hinzufefügte Options
-        # x.x.x
+        # 1.1.0
+        self.vorlagen = []
+        if self.configIni.has_option("Allgemein", "vorlagenverzeichnis"):
+            self.vorlagenverzeichnis = self.configIni["Allgemein"]["vorlagenverzeichnis"]
+            if self.vorlagenverzeichnis != "" and os.path.exists(self.vorlagenverzeichnis):
+                for vorlage in os.listdir(self.vorlagenverzeichnis):
+                    if vorlage[-4:] == ".dgv":
+                        self.vorlagen.append(vorlage[0:-4])
+                self.vorlagen.sort()
+            elif self.vorlagenverzeichnis != "":
+                mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Das Vorlagenverzeichnis " + self.vorlagenverzeichnis + " existiert nicht.", QMessageBox.StandardButton.Ok)
+                mb.exec()
         # /Nachträglich hinzufefügte Options
 
         z = self.configIni["GDT"]["zeichensatz"]
@@ -226,13 +238,9 @@ class MainWindow(QMainWindow):
                 self.configIni["Allgemein"]["version"] = configIniBase["Allgemein"]["version"]
                 self.configIni["Allgemein"]["releasedatum"] = configIniBase["Allgemein"]["releasedatum"] 
                 # config.ini aktualisieren
-                # 3.9.0 -> 3.10.0: ["Allgemein"]["benutzeruebernehmen"], ["Allgemein"]["einrichtunguebernehmen"] und ["Benutzer"]["einrichtung"] hinzufügen
-                # if not self.configIni.has_option("Allgemein", "benutzeruebernehmen"):
-                #     self.configIni["Allgemein"]["benutzeruebernehmen"] = "0"
-                # if not self.configIni.has_option("Allgemein", "einrichtunguebernehmen"):
-                #     self.configIni["Allgemein"]["einrichtunguebernehmen"] = "0"
-                # if not self.configIni.has_option("Benutzer", "einrichtung"):
-                #     self.configIni["Benutzer"]["einrichtung"] = ""
+                # 1.0.3 -> 1.1.0: ["Allgemein"]["vorlagenverzeichnis"] hinzufügen
+                if not self.configIni.has_option("Allgemein", "vorlagenverzeichnis"):
+                    self.configIni["Allgemein"]["vorlagenverzeichnis"] = basedir
                 # /config.ini aktualisieren
 
                 with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
@@ -267,8 +275,6 @@ class MainWindow(QMainWindow):
         self.vorname = "-"
         self.nachname = "-"
         self.gebdat = "-"
-        self.groesse = "-"
-        self.gewicht = "-"
         mbErg = QMessageBox.StandardButton.Yes
         try:
             # Prüfen, ob PVS-GDT-ID eingetragen
@@ -297,7 +303,7 @@ class MainWindow(QMainWindow):
             mailnLayoutRechteSpalte = QVBoxLayout()
             self.lineEditBreiteKlein = 50
             self.maxDosenProEinheit = 4
-            self.maxDosierungsplanAnweisungen = 4
+            self.maxDosierungsplanAnweisungen = 5
             self.styleSheetHellrot = "background:rgb(255,200,200)"
             self.styleSheetWeiss = "background:rgb(255,255,255)"
             self.patternDosis = r"^\d+([.,]\d+)*$"
@@ -473,7 +479,7 @@ class MainWindow(QMainWindow):
             groupBoxDosierungsplan.setLayout(self.dosierungsplanLayout)
 
             # Buttons
-            buttonLayout = QHBoxLayout()
+            buttonLayout = QGridLayout()
             buttonLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.pushButtonVorschau = QPushButton("Vorschau")
             self.pushButtonVorschau.setFixedSize(QSize(200, 40))
@@ -482,9 +488,12 @@ class MainWindow(QMainWindow):
             self.pushButtonSenden.setFixedSize(QSize(200, 40))
             self.pushButtonSenden.setEnabled(False)
             self.pushButtonSenden.clicked.connect(self.pushButtonSendenClicked) # type: ignore
-            buttonLayout.addWidget(self.pushButtonVorschau)
-            buttonLayout.addSpacing(50)
-            buttonLayout.addWidget(self.pushButtonSenden)
+            self.pushButtonVorlageSpeichern = QPushButton("Als Vorlage speichern...")
+            self.pushButtonVorlageSpeichern.setFixedSize(200,40)
+            self.pushButtonVorlageSpeichern.clicked.connect(self.pushButtonVorlageSpeichernClicked) # type: ignore
+            buttonLayout.addWidget(self.pushButtonVorschau, 0, 0)
+            buttonLayout.addWidget(self.pushButtonSenden, 0, 1)
+            buttonLayout.addWidget(self.pushButtonVorlageSpeichern, 1, 0, 1, 2, Qt.AlignmentFlag.AlignCenter)
 
             # Groupbox PatientIn
             patientLayout = QGridLayout()
@@ -549,7 +558,7 @@ class MainWindow(QMainWindow):
 
             # Formular ggf. vor-ausfüllen
             if self.defaultXml != "":
-                self.setPreFormularXml(os.path.join(basedir, "vorlagen", self.defaultXml))
+                self.setPreFormularXml(os.path.join(basedir, self.vorlagenverzeichnis, self.defaultXml))
 
             #Menü
             menubar = self.menuBar()
@@ -563,8 +572,15 @@ class MainWindow(QMainWindow):
             updateAction.triggered.connect(self.updatePruefung) # type: ignore
             updateAction.setShortcut(QKeySequence("Ctrl+U"))
             vorlagenMenu = menubar.addMenu("Vorlagen")
-            vorlagenMenuPolymyalgiaRheumaticaAction = QAction("Polymyalgia rheumatica", self)
-            vorlagenMenuPolymyalgiaRheumaticaAction.triggered.connect(self.vorlagenMenuPolymyalgiaRheumatica) # type: ignore
+            i = 0
+            vorlagenMenuAction = []
+            for vorlage in self.vorlagen:
+                vorlagenMenuAction.append(QAction(vorlage, self))
+                vorlagenMenuAction[i].triggered.connect(lambda checked=False, name=vorlage: self.vorlagenMenu(checked, name)) # type: ignore
+                i += 1
+            vorlagenMenuVorlagenVerwaltenAction = QAction("Vorlagen verwalten...", self)
+            vorlagenMenuVorlagenVerwaltenAction.setShortcut(QKeySequence("Ctrl+T"))
+            vorlagenMenuVorlagenVerwaltenAction.triggered.connect(self.vorlagenMenuVorlagenVerwalten) # type: ignore
             einstellungenMenu = menubar.addMenu("Einstellungen")
             einstellungenAllgemeinAction = QAction("Allgemeine Einstellungen", self)
             einstellungenAllgemeinAction.triggered.connect(lambda neustartfrage: self.einstellungenAllgemein(True)) # type: ignore
@@ -596,7 +612,11 @@ class MainWindow(QMainWindow):
             
             anwendungMenu.addAction(aboutAction)
             anwendungMenu.addAction(updateAction)
-            vorlagenMenu.addAction(vorlagenMenuPolymyalgiaRheumaticaAction)
+            for i in range(len(vorlagenMenuAction)):
+                vorlagenMenu.addAction(vorlagenMenuAction[i])
+            vorlagenMenu.addSeparator()
+            vorlagenMenu.addAction(vorlagenMenuVorlagenVerwaltenAction)
+
             einstellungenMenu.addAction(einstellungenAllgemeinAction)
             einstellungenMenu.addAction(einstellungenGdtAction)
             einstellungenMenu.addAction(einstellungenErweiterungenAction)
@@ -850,6 +870,84 @@ class MainWindow(QMainWindow):
                 mb.exec()
         return (medikament, dp)
     
+    def pushButtonVorlageSpeichernClicked(self):
+        FILTER = ["DGV-Dateien (*.dgv)", "Alle Dateien (*:*)"]
+        filter = ";;".join(FILTER)
+        dateiname, filter = QFileDialog.getSaveFileName(self, "Vorlage speichern", self.vorlagenverzeichnis, filter, FILTER[0])
+        if dateiname:
+            # XML-Datei erzeugen
+            dosierungsplanElement = ElementTree.Element("dosierungdsplan")
+            medikamentElement = ElementTree.Element("medikament")
+            nameElement = ElementTree.Element("name")
+            nameElement.text = self.lineEditMediName.text()
+            einheitElement = ElementTree.Element("einheit")
+            einheitElement.text = self.comboBoxMediEinheit.currentText()
+            darreichungsformElement = ElementTree.Element("darreichungsform")
+            darreichungsformElement.text = self.comboBoxMediDarreichungsform.currentText()
+            dosenProEinheitElement = ElementTree.Element("dosenProEinheit")
+            teilbarkeitenElement = ElementTree.Element("teilbarkeiten")
+            dosisElement = []
+            teilbarkeitElement = []
+            for i in range(self.maxDosenProEinheit):
+                if self.lineEditDosisProEinheit[i].text() != "":
+                    dosisElement.append(ElementTree.Element("dosis"))
+                    dosisElement[i].text = self.lineEditDosisProEinheit[i].text()
+                    dosenProEinheitElement.append(dosisElement[i])
+                    teilbarkeitElement.append(ElementTree.Element("teilbarkeit"))
+                    teilbarkeitElement[i].text = self.comboBoxDosisTeilbarkeit[i].currentText()
+                    teilbarkeitenElement.append(teilbarkeitElement[i])
+                else:
+                    break
+            medikamentElement.append(nameElement)
+            medikamentElement.append(einheitElement)
+            medikamentElement.append(darreichungsformElement)
+            medikamentElement.append(dosenProEinheitElement)
+            medikamentElement.append(teilbarkeitenElement)
+            startdosisElement = ElementTree.Element("startdosis")
+            startdosisElement.text = self.lineEditStartdosis.text()
+            startdauerElement = ElementTree.Element("startdauer")
+            startdauerElement.text = self.lineEditStartTage.text()
+            aenderungenElement = ElementTree.Element("aenderungen")
+            aenderungElement = []
+            reduktionUmElement = []
+            tageElement = []
+            bisElement = []
+            for i in range(self.maxDosierungsplanAnweisungen):
+                if self.lineEditReduktionUm[i].text() != "":
+                    aenderungElement.append(ElementTree.Element("aenderung"))
+                    reduktionUmElement.append(ElementTree.Element("reduktionUm"))
+                    reduktionUmElement[i].text = self.lineEditReduktionUm[i].text().replace(",",".")
+                    aenderungElement[i].append(reduktionUmElement[i])
+                    tageElement.append(ElementTree.Element("tage"))
+                    tageElement[i].text = self.lineEditTage[i].text()
+                    aenderungElement[i].append(tageElement[i])
+                    bisElement.append(ElementTree.Element("bis"))
+                    bisElement[i].text = self.lineEditBis[i].text().replace(",",".")
+                    aenderungElement[i].append(bisElement[i])
+                    aenderungenElement.append(aenderungElement[i])
+                else:
+                    break
+            maxTablettenzahlElement = ElementTree.Element("maxTablettenzahl")
+            maxTablettenzahlElement.text = self.lineEditMaximaleTablettenzahl.text()
+            dosierungsplanElement.append(medikamentElement)
+            dosierungsplanElement.append(startdosisElement)
+            dosierungsplanElement.append(startdauerElement)
+            dosierungsplanElement.append(aenderungenElement)
+            dosierungsplanElement.append(maxTablettenzahlElement)
+            et = ElementTree.ElementTree(dosierungsplanElement)
+            ElementTree.indent(et)
+            try:
+                et.write(dateiname, "utf-8", True)
+                mb = QMessageBox(QMessageBox.Icon.Question, "Hinweis von DosisGDT", "Damit die Vorlage in die Menüleiste übernommen wird, muss DosisGDT neu gestartet werden.\nSoll DosisGDT jetzt neu gestartet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                mb.setDefaultButton(QMessageBox.StandardButton.Yes)
+                mb.button(QMessageBox.StandardButton.Yes).setText("Ja")
+                mb.button(QMessageBox.StandardButton.No).setText("Nein")
+                if mb.exec() == QMessageBox.StandardButton.Yes:
+                    os.execl(sys.executable, __file__, *sys.argv)
+            except Exception as e:
+                self.setStatusMessage("Fehler beim Speichern der Vorlage: " + e.args[1])
+                logger.logger.error("Fehler beim Speichern der Vorlage " + dateiname) 
+    
     def pushButtonVorschauClicked(self):
         self.textEditVorschau.clear()
         fehler = self.formularPruefen()
@@ -1039,9 +1137,39 @@ class MainWindow(QMainWindow):
             mb.setTextFormat(Qt.TextFormat.RichText)
             mb.exec()
 
-    def vorlagenMenuPolymyalgiaRheumatica(self):
-        self.setPreFormularXml(os.path.join(basedir, "vorlagen/polymyalgia-rheumatica.xml"))
-        self.lineEditMediName.setText(self.preMedikament.name)
+    def vorlagenMenu(self, checked, name):
+        self.setPreFormularXml(os.path.join(self.vorlagenverzeichnis, name + ".dgv"))
+
+    def vorlagenMenuVorlagenVerwalten(self):
+        defaultxmlkopie = self.defaultXml
+        vorlagenkopie = []
+        for vorlage in self.vorlagen:
+            vorlagenkopie.append(vorlage)
+        dv = dialogVorlagenVerwalten.VorlagenVerwalten(vorlagenkopie, defaultxmlkopie)
+        if dv.exec() == 1:
+            i = 0
+            for neueVorlage in dv.vorlagen:
+                if neueVorlage != self.vorlagen[i] and not dv.listWidgetVorlagen.item(i).font().strikeOut():
+                    os.rename(os.path.join(self.vorlagenverzeichnis, self.vorlagen[i] + ".dgv"), os.path.join(self.vorlagenverzeichnis, neueVorlage + ".dgv"))
+                    if self.vorlagen[i] == self.defaultXml[0:-4]:
+                        self.configIni["Allgemein"]["defaultxml"] = neueVorlage + ".dgv"
+                    self.vorlagen[i] = neueVorlage
+                elif dv.listWidgetVorlagen.item(i).font().strikeOut():
+                    os.remove(os.path.join(self.vorlagenverzeichnis, self.vorlagen[i] + ".dgv"))
+                    if self.vorlagen[i] == self.defaultXml[0:-4]:
+                        self.configIni["Allgemein"]["defaultxml"] = ""
+                i += 1
+            if dv.defaultxml != self.defaultXml:
+                self.defaultXml = dv.defaultxml
+                self.configIni["Allgemein"]["defaultxml"] = dv.defaultxml
+            with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
+                self.configIni.write(configfile)
+            mb = QMessageBox(QMessageBox.Icon.Question, "Hinweis von DosisGDT", "Damit die Vorlagen in der Menüleiste aktualisiert werden, muss DosisGDT neu gestartet werden.\nSoll DosisGDT jetzt neu gestartet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            mb.setDefaultButton(QMessageBox.StandardButton.Yes)
+            mb.button(QMessageBox.StandardButton.Yes).setText("Ja")
+            mb.button(QMessageBox.StandardButton.No).setText("Nein")
+            if mb.exec() == QMessageBox.StandardButton.Yes:
+                os.execl(sys.executable, __file__, *sys.argv)
         
     def einstellungenAllgemein(self, neustartfrage = False):
         de = dialogEinstellungenAllgemein.EinstellungenAllgemein(self.configPath)
@@ -1054,6 +1182,7 @@ class MainWindow(QMainWindow):
             self.configIni["Allgemein"]["einrichtungAufPdf"] = "0"
             if de.checkboxEinrichtungAufPdf.isChecked():
                 self.configIni["Allgemein"]["einrichtungAufPdf"] = "1"
+            self.configIni["Allgemein"]["vorlagenverzeichnis"] = de.lineEditVorlagenverzeichnis.text()
             with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
                 self.configIni.write(configfile)
             if neustartfrage:

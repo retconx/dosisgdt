@@ -27,6 +27,8 @@ class EinstellungenAllgemein(QDialog):
         self.pdfErstellen = configIni["Allgemein"]["pdferstellen"] == "1"
         self.pdfbezeichnung = configIni["Allgemein"]["pdfbezeichnung"] 
         self.einrichtungAufPdf = configIni["Allgemein"]["einrichtungaufpdf"] == "1"
+        self.defaultxml = configIni["Allgemein"]["defaultxml"]
+        self.vorlagenverzeichnis = configIni["Allgemein"]["vorlagenverzeichnis"]
 
         self.setWindowTitle("Allgemeine Einstellungen")
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -79,19 +81,35 @@ class EinstellungenAllgemein(QDialog):
             self.lineEditPdfBezeichnung.setText("")
             self.checkboxEinrichtungAufPdf.setEnabled(False)
             self.checkboxEinrichtungAufPdf.setChecked(False)
-
         groupboxLayoutPdfErstellung = QGridLayout()
         groupboxLayoutPdfErstellung.addWidget(labelKeineRegistrierung, 0, 0, 1, 2)
         groupboxLayoutPdfErstellung.addWidget(labelPdfErstellen, 1, 0)
         groupboxLayoutPdfErstellung.addWidget(self.checkboxPdfErstellen, 1, 1)
         groupboxLayoutPdfErstellung.addWidget(labelEinrichtungAufPdf, 3, 0)
         groupboxLayoutPdfErstellung.addWidget(self.checkboxEinrichtungAufPdf, 3, 1)
-        groupboxPdfErstellung.setLayout(groupboxLayoutPdfErstellung)
         groupboxLayoutPdfErstellung.addWidget(labelPdfBezeichnung, 4, 0)
         groupboxLayoutPdfErstellung.addWidget(self.lineEditPdfBezeichnung, 5, 0)
+        groupboxPdfErstellung.setLayout(groupboxLayoutPdfErstellung)
+
+        # Groupox Vorlagen
+        groupboxVorlagen = QGroupBox("Dosierungsplan-Vorlagen")
+        groupboxVorlagen.setStyleSheet("font-weight:bold")
+        labelVorlagenverzeichnis = QLabel("Vorlagenverzeichnis:")
+        labelVorlagenverzeichnis.setStyleSheet("font-weight:normal")
+        self.lineEditVorlagenverzeichnis= QLineEdit(self.vorlagenverzeichnis)
+        self.lineEditVorlagenverzeichnis.setStyleSheet("font-weight:normal")
+        buttonDurchsuchenVorlagenverzeichnis = QPushButton("Durchsuchen")
+        buttonDurchsuchenVorlagenverzeichnis.setStyleSheet("font-weight:normal")
+        buttonDurchsuchenVorlagenverzeichnis.clicked.connect(self.durchsuchenVorlagenverzeichnis) # type: ignore
+        groupboxLayoutVorlagen = QGridLayout()
+        groupboxLayoutVorlagen.addWidget(labelVorlagenverzeichnis, 0, 0, 1, 2)
+        groupboxLayoutVorlagen.addWidget(self.lineEditVorlagenverzeichnis, 1, 0)
+        groupboxLayoutVorlagen.addWidget(buttonDurchsuchenVorlagenverzeichnis, 1, 1)
+        groupboxVorlagen.setLayout(groupboxLayoutVorlagen)
 
         dialogLayoutV.addWidget(groupboxEinrichtung)
         dialogLayoutV.addWidget(groupboxPdfErstellung)
+        dialogLayoutV.addWidget(groupboxVorlagen)
         dialogLayoutV.addWidget(self.buttonBox)
         dialogLayoutV.setContentsMargins(10, 10, 10, 10)
         dialogLayoutV.setSpacing(20)
@@ -105,6 +123,18 @@ class EinstellungenAllgemein(QDialog):
     def checkboxEinrichtungAufPdfChanged(self, newState):
         if newState:
             self.checkboxPdfErstellen.setChecked(True)
+    
+    def durchsuchenVorlagenverzeichnis(self):
+        fd = QFileDialog(self)
+        fd.setFileMode(QFileDialog.FileMode.Directory)
+        fd.setWindowTitle("Vorlagenverzeichnis")
+        fd.setDirectory(self.vorlagenverzeichnis)
+        fd.setModal(True)
+        fd.setLabelText(QFileDialog.DialogLabel.Accept, "Ok")
+        fd.setLabelText(QFileDialog.DialogLabel.Reject, "Abbrechen")
+        if fd.exec() == 1:
+            self.dokuverzeichnis = fd.directory()
+            self.lineEditVorlagenverzeichnis.setText(fd.directory().path())
 
     def accept(self):
         regexPattern = "[/.,]"
