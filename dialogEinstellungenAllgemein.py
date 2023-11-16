@@ -28,7 +28,9 @@ class EinstellungenAllgemein(QDialog):
         self.pdfbezeichnung = configIni["Allgemein"]["pdfbezeichnung"] 
         self.einrichtungAufPdf = configIni["Allgemein"]["einrichtungaufpdf"] == "1"
         self.defaultxml = configIni["Allgemein"]["defaultxml"]
-        self.vorlagenverzeichnis = configIni["Allgemein"]["vorlagenverzeichnis"]
+        self.vorlagenverzeichnis = ""
+        if configIni.has_option("Allgemein", "vorlagenverzeichnis"): # wurde erst mit 1.1.0 eingeführt
+            self.vorlagenverzeichnis = configIni["Allgemein"]["vorlagenverzeichnis"]
 
         self.setWindowTitle("Allgemeine Einstellungen")
         self.setMinimumWidth(500)
