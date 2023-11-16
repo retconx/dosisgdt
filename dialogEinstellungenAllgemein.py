@@ -31,6 +31,7 @@ class EinstellungenAllgemein(QDialog):
         self.vorlagenverzeichnis = configIni["Allgemein"]["vorlagenverzeichnis"]
 
         self.setWindowTitle("Allgemeine Einstellungen")
+        self.setMinimumWidth(500)
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.buttonBox.button(QDialogButtonBox.StandardButton.Cancel).setText("Abbrechen")
         self.buttonBox.accepted.connect(self.accept) # type: ignore

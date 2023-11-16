@@ -240,7 +240,8 @@ class MainWindow(QMainWindow):
                 # config.ini aktualisieren
                 # 1.0.3 -> 1.1.0: ["Allgemein"]["vorlagenverzeichnis"] hinzufügen
                 if not self.configIni.has_option("Allgemein", "vorlagenverzeichnis"):
-                    self.configIni["Allgemein"]["vorlagenverzeichnis"] = basedir
+                    self.configIni["Allgemein"]["vorlagenverzeichnis"] = ""
+                    self.vorlagenverzeichnis = ""
                 # /config.ini aktualisieren
 
                 with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
@@ -1121,6 +1122,15 @@ class MainWindow(QMainWindow):
             gd.addZeile("6226", str(len(dp)))
             for zeile in dp:
                 gd.addZeile("6228", zeile["vonDatum"] + " - " + zeile["bisDatum"] + ": " + zeile["dosis"])
+            gd.addZeile("6228", "")
+            gd.addZeile("6228", medikament.name + "-Verbrauch:")
+            tablettenGesamtmengen = class_dosierungsplan.Dosierungsplan.getTablettenGesamtmengen(dp, medikament)
+            if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
+                for tablette in tablettenGesamtmengen:
+                    if medikament.darreichungsform == class_medikament.Darreichungsform.TABLETTE:
+                        gd.addZeile("6228", tablette + " " + medikament.einheit.value + ": " + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück")
+                    else:
+                        gd.addZeile("6228",  str(tablettenGesamtmengen[tablette]).replace(".",",") + " Tropfen (" + str(tablettenGesamtmengen[tablette] * float(tablette)).replace(".",",") + " " + medikament.einheit.value + ")")
             # GDT-Datei exportieren
             if not gd.speichern(self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt", self.zeichensatz):
                 logger.logger.error("Fehler bei GDT-Dateiexport nach " + self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt")
@@ -1141,35 +1151,40 @@ class MainWindow(QMainWindow):
         self.setPreFormularXml(os.path.join(self.vorlagenverzeichnis, name + ".dgv"))
 
     def vorlagenMenuVorlagenVerwalten(self):
-        defaultxmlkopie = self.defaultXml
-        vorlagenkopie = []
-        for vorlage in self.vorlagen:
-            vorlagenkopie.append(vorlage)
-        dv = dialogVorlagenVerwalten.VorlagenVerwalten(vorlagenkopie, defaultxmlkopie)
-        if dv.exec() == 1:
-            i = 0
-            for neueVorlage in dv.vorlagen:
-                if neueVorlage != self.vorlagen[i] and not dv.listWidgetVorlagen.item(i).font().strikeOut():
-                    os.rename(os.path.join(self.vorlagenverzeichnis, self.vorlagen[i] + ".dgv"), os.path.join(self.vorlagenverzeichnis, neueVorlage + ".dgv"))
-                    if self.vorlagen[i] == self.defaultXml[0:-4]:
-                        self.configIni["Allgemein"]["defaultxml"] = neueVorlage + ".dgv"
-                    self.vorlagen[i] = neueVorlage
-                elif dv.listWidgetVorlagen.item(i).font().strikeOut():
-                    os.remove(os.path.join(self.vorlagenverzeichnis, self.vorlagen[i] + ".dgv"))
-                    if self.vorlagen[i] == self.defaultXml[0:-4]:
-                        self.configIni["Allgemein"]["defaultxml"] = ""
-                i += 1
-            if dv.defaultxml != self.defaultXml:
-                self.defaultXml = dv.defaultxml
-                self.configIni["Allgemein"]["defaultxml"] = dv.defaultxml
-            with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
-                self.configIni.write(configfile)
-            mb = QMessageBox(QMessageBox.Icon.Question, "Hinweis von DosisGDT", "Damit die Vorlagen in der Menüleiste aktualisiert werden, muss DosisGDT neu gestartet werden.\nSoll DosisGDT jetzt neu gestartet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            mb.setDefaultButton(QMessageBox.StandardButton.Yes)
-            mb.button(QMessageBox.StandardButton.Yes).setText("Ja")
-            mb.button(QMessageBox.StandardButton.No).setText("Nein")
-            if mb.exec() == QMessageBox.StandardButton.Yes:
-                os.execl(sys.executable, __file__, *sys.argv)
+        if self.vorlagenverzeichnis != "" and os.path.exists(self.vorlagenverzeichnis):
+            defaultxmlkopie = self.defaultXml
+            vorlagenkopie = []
+            for vorlage in self.vorlagen:
+                vorlagenkopie.append(vorlage)
+            dv = dialogVorlagenVerwalten.VorlagenVerwalten(vorlagenkopie, defaultxmlkopie)
+            if dv.exec() == 1:
+                i = 0
+                for neueVorlage in dv.vorlagen:
+                    if neueVorlage != self.vorlagen[i] and not dv.listWidgetVorlagen.item(i).font().strikeOut():
+                        os.rename(os.path.join(self.vorlagenverzeichnis, self.vorlagen[i] + ".dgv"), os.path.join(self.vorlagenverzeichnis, neueVorlage + ".dgv"))
+                        if self.vorlagen[i] == self.defaultXml[0:-4]:
+                            self.configIni["Allgemein"]["defaultxml"] = neueVorlage + ".dgv"
+                        self.vorlagen[i] = neueVorlage
+                    elif dv.listWidgetVorlagen.item(i).font().strikeOut():
+                        os.remove(os.path.join(self.vorlagenverzeichnis, self.vorlagen[i] + ".dgv"))
+                        if self.vorlagen[i] == self.defaultXml[0:-4]:
+                            self.configIni["Allgemein"]["defaultxml"] = ""
+                    i += 1
+                if dv.defaultxml != self.defaultXml:
+                    self.defaultXml = dv.defaultxml
+                    self.configIni["Allgemein"]["defaultxml"] = dv.defaultxml
+                with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
+                    self.configIni.write(configfile)
+                mb = QMessageBox(QMessageBox.Icon.Question, "Hinweis von DosisGDT", "Damit die Vorlagen in der Menüleiste aktualisiert werden, muss DosisGDT neu gestartet werden.\nSoll DosisGDT jetzt neu gestartet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                mb.setDefaultButton(QMessageBox.StandardButton.Yes)
+                mb.button(QMessageBox.StandardButton.Yes).setText("Ja")
+                mb.button(QMessageBox.StandardButton.No).setText("Nein")
+                if mb.exec() == QMessageBox.StandardButton.Yes:
+                    os.execl(sys.executable, __file__, *sys.argv)
+        else:
+            mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Bitte legen Sie in den Allgemeinen Einstellungen ein gültiges Vorlagenverzeichnis an.", QMessageBox.StandardButton.Ok)
+            mb.setTextFormat(Qt.TextFormat.RichText)
+            mb.exec()
         
     def einstellungenAllgemein(self, neustartfrage = False):
         de = dialogEinstellungenAllgemein.EinstellungenAllgemein(self.configPath)
