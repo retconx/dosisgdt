@@ -152,11 +152,12 @@ class Dosierungsplan():
         return zeilen
     
     @staticmethod
-    def getTablettenGesamtmengen(dosierungsplanzeilen, medikament):
+    def getTablettenGesamtmengen(dosierungsplanzeilen, medikament, berechnungAusVergangenheit:bool):
         """
         Gibt den Medikamentenverbrauch eines Dosierungsplans zurück
         Parameter:
             Ergebnis von get_dosierungsplan
+            berechnungAusVergangenheit:bool Wenn True, Berechung gegbenenfalls aus der Vergangenheit, wenn False, ab heute
         Return:
             Dictionary mit jeweils key: Medikamentendosis / value: Anzahl Tabletten/Tropfen
         """
@@ -170,7 +171,9 @@ class Dosierungsplan():
             bisJahr = int(zeile["bisDatum"][6:10])
             bisMonat = int(zeile["bisDatum"][3:5])
             bisTag = int(zeile["bisDatum"][0:2])
-            vonDatum = datetime.date(vonJahr, vonMonat, vonTag)
+            vonDatum = datetime.date.today()
+            if berechnungAusVergangenheit:
+                vonDatum = datetime.date(vonJahr, vonMonat, vonTag)
             bisDatum = datetime.date(bisJahr, bisMonat, bisTag)
             delta = bisDatum - vonDatum
             anzahlTage = delta.days + 1
@@ -206,4 +209,4 @@ if __name__ == "__main__":
 
     for zeile in dosierungsplan.get_dosierungsplan():
         print(zeile)
-    print(Dosierungsplan.getTablettenGesamtmengen(dosierungsplan.get_dosierungsplan(), medikament))
+    print(Dosierungsplan.getTablettenGesamtmengen(dosierungsplan.get_dosierungsplan(), medikament, False))

@@ -270,6 +270,8 @@ class MainWindow(QMainWindow):
         self.fontBold.setBold(True)
         self.fontKlein = QFont()
         self.fontKlein.setPixelSize(10)
+        self.planBeginnInVergangenheit = False
+
         # GDT-Datei laden
         gd = gdt.GdtDatei()
         self.patId = "-"
@@ -720,11 +722,7 @@ class MainWindow(QMainWindow):
 
     def dateEditAbChanged(self, datum):
         if datum.daysTo(QDate().currentDate()) > 0:
-            self.dateEditAb.setStyleSheet(self.styleSheetHellrot)
-            self.setStatusMessage("Datum in Vergangenheit")
-        else:
-            self.dateEditAb.setStyleSheet(self.styleSheetWeiss)
-            self.setStatusMessage()
+            self.planBeginnInVergangenheit = True
 
     def lineEditStartdosisTextChanged(self, text):
         if text.strip() == "":
@@ -1005,8 +1003,8 @@ class MainWindow(QMainWindow):
                     j += 1
                 text += "</table>"
                 text += "<table style='margin-top:10px;border:none;border-collapse:collapse'>"
-                text +=" <tr><td colspan='2'><b>" + medikament.name + "-Verbrauch:</b></td></tr>"
-                tablettenGesamtmengen = class_dosierungsplan.Dosierungsplan.getTablettenGesamtmengen(dp, medikament)
+                text +=" <tr><td colspan='2'><b>" + medikament.name + "-Verbrauch ab " + datetime.date.today().strftime("%d.%m.%Y") + ":</b></td></tr>"
+                tablettenGesamtmengen = class_dosierungsplan.Dosierungsplan.getTablettenGesamtmengen(dp, medikament, False)
                 if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
                     for tablette in tablettenGesamtmengen:
                         if medikament.darreichungsform == class_medikament.Darreichungsform.TABLETTE:
@@ -1046,7 +1044,7 @@ class MainWindow(QMainWindow):
             pdf.set_font("helvetica", "", 14)
             pdf.cell(0, 10, "", new_x="LMARGIN", new_y="NEXT")
             titelzeile = ["Von", "Bis", "Dosis", darreichungsform + "-Einnahme"]
-            with pdf.table(v_align=enums.VAlign.T, line_height=1.5 * pdf.font_size, cell_fill_color=(230,230,230), cell_fill_mode="ROWS", col_widths=(20,20,10, 50)) as table:
+            with pdf.table(v_align=enums.VAlign.T, line_height=1.5 * pdf.font_size, cell_fill_color=(230,230,230), cell_fill_mode="ROWS", col_widths=(20,20,10, 50)) as table: # type: ignore
                 pdf.set_font("helvetica", "B", 12)
                 row = table.row()
                 for titel in titelzeile:
@@ -1123,8 +1121,8 @@ class MainWindow(QMainWindow):
             for zeile in dp:
                 gd.addZeile("6228", zeile["vonDatum"] + " - " + zeile["bisDatum"] + ": " + zeile["dosis"])
             gd.addZeile("6228", "")
-            gd.addZeile("6228", medikament.name + "-Verbrauch:")
-            tablettenGesamtmengen = class_dosierungsplan.Dosierungsplan.getTablettenGesamtmengen(dp, medikament)
+            gd.addZeile("6228", medikament.name + "-Verbrauch ab " + untdatDatetime.strftime("%d.%m.%Y") + ":")
+            tablettenGesamtmengen = class_dosierungsplan.Dosierungsplan.getTablettenGesamtmengen(dp, medikament, False)
             if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
                 for tablette in tablettenGesamtmengen:
                     if medikament.darreichungsform == class_medikament.Darreichungsform.TABLETTE:
