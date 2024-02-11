@@ -2,7 +2,7 @@ import sys, configparser, os, datetime, shutil,logger, re
 import gdt, gdtzeile, gdttoolsL
 import xml.etree.ElementTree as ElementTree
 from fpdf import FPDF, enums
-import class_medikament, class_dosierungsplan, dialogUeberDosisGdt, dialogEinstellungenGdt, dialogEinstellungenAllgemein, dialogEinstellungenLanrLizenzschluessel, dialogEinstellungenImportExport, dialogVorlagenVerwalten
+import class_medikament, class_dosierungsplan, dialogUeberDosisGdt, dialogEinstellungenGdt, dialogEinstellungenAllgemein, dialogEinstellungenLanrLizenzschluessel, dialogEinstellungenImportExport, dialogVorlagenVerwalten, dialogEula
 from PySide6.QtCore import Qt, QSize, QDate, QTranslator, QLibraryInfo
 from PySide6.QtGui import QFont, QAction, QKeySequence, QIcon, QDesktopServices
 from PySide6.QtWidgets import (
@@ -199,6 +199,10 @@ class MainWindow(QMainWindow):
             elif self.vorlagenverzeichnis != "":
                 mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Das Vorlagenverzeichnis " + self.vorlagenverzeichnis + " existiert nicht.", QMessageBox.StandardButton.Ok)
                 mb.exec()
+        # 1.1.5
+        self.eulagelesen = False
+        if self.configIni.has_option("Allgemein", "eulagelesen"):
+            self.eulagelesen = self.configIni["Allgemein"]["eulagelesen"] == "True"
         # /Nachträglich hinzufefügte Options
 
         z = self.configIni["GDT"]["zeichensatz"]
@@ -218,6 +222,21 @@ class MainWindow(QMainWindow):
                     self.configIni.write(configfile)
         else:
             self.lizenzschluessel = gdttoolsL.GdtToolsLizenzschluessel.dekrypt(self.lizenzschluessel)
+
+        # Prüfen, ob EULA gelesen
+        if not self.eulagelesen:
+            de = dialogEula.Eula()
+            de.exec()
+            if de.checkBoxZustimmung.isChecked():
+                self.eulagelesen = True
+                self.configIni["Allgemein"]["eulagelesen"] = "True"
+                with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
+                    self.configIni.write(configfile)
+                logger.logger.info("EULA zugestimmt")
+            else:
+                mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Ohne Zustimmung der Lizenzvereinbarung kann DosisGDT nicht gestartet werden.", QMessageBox.StandardButton.Ok)
+                mb.exec()
+                sys.exit()
 
         # Grundeinstellungen bei erstem Start
         if ersterStart:
@@ -248,9 +267,22 @@ class MainWindow(QMainWindow):
                     self.configIni.write(configfile)
                 self.version = self.configIni["Allgemein"]["version"]
                 logger.logger.info("Version auf " + self.version + " aktualisiert")
-                mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "DosisGDT wurde erfolgreich auf Version " + self.version + " aktualisiert.", QMessageBox.StandardButton.Ok)
-                mb.setTextFormat(Qt.TextFormat.RichText)
-                mb.exec()
+                # Prüfen, ob EULA gelesen
+                de = dialogEula.Eula(self.version)
+                de.exec()
+                self.eulagelesen = de.checkBoxZustimmung.isChecked()
+                self.configIni["Allgemein"]["eulagelesen"] = str(self.eulagelesen)
+                with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
+                    self.configIni.write(configfile)
+                if self.eulagelesen:
+                    logger.logger.info("EULA zugestimmt")
+                else:
+                    logger.logger.info("EULA nicht zugestimmt")
+                    mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Ohne  Zustimmung zur Lizenzvereinbarung kann DosisGDT nicht gestartet werden.", QMessageBox.StandardButton.Ok)
+                    mb.exec()
+                    sys.exit()
+        except SystemExit:
+            sys.exit()
         except:
             logger.logger.error("Problem beim Aktualisieren auf Version " + configIniBase["Allgemein"]["version"])
             mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Problem beim Aktualisieren auf Version " + configIniBase["Allgemein"]["version"], QMessageBox.StandardButton.Ok)
@@ -300,7 +332,7 @@ class MainWindow(QMainWindow):
             mbErg = mb.exec()
         if mbErg == QMessageBox.StandardButton.Yes:
             self.widget = QWidget()
-            self.widget.installEventFilter(self)
+            # self.widget.installEventFilter(self)
             mainSpaltenlayout = QHBoxLayout()
             mainLayoutLinkeSpalte = QVBoxLayout()
             mailnLayoutRechteSpalte = QVBoxLayout()
@@ -609,6 +641,8 @@ class MainWindow(QMainWindow):
             hilfeUeberAction.setMenuRole(QAction.MenuRole.NoRole)
             hilfeUeberAction.triggered.connect(self.ueberDosisGdt) # type: ignore
             hilfeUeberAction.setShortcut(QKeySequence("Ctrl+Ü"))
+            hilfeEulaAction = QAction("Lizenzvereinbarung (EULA)", self)
+            hilfeEulaAction.triggered.connect(self.eula) 
             hilfeLogExportieren = QAction("Log-Verzeichnis exportieren", self)
             hilfeLogExportieren.triggered.connect(self.logExportieren) # type: ignore
             hilfeLogExportieren.setShortcut(QKeySequence("Ctrl+D"))
@@ -629,6 +663,7 @@ class MainWindow(QMainWindow):
             hilfeMenu.addAction(hilfeUpdateAction)
             hilfeMenu.addSeparator()
             hilfeMenu.addAction(hilfeUeberAction)
+            hilfeMenu.addAction(hilfeEulaAction)
             hilfeMenu.addSeparator()
             hilfeMenu.addAction(hilfeLogExportieren)
 
@@ -1251,7 +1286,7 @@ class MainWindow(QMainWindow):
             pass    
 
     def dosisgdtWiki(self, link):
-        QDesktopServices.openUrl("https://www.github.com/retconx/dosisgdt/wiki")
+        QDesktopServices.openUrl("https://github.com/retconx/dosisgdt/wiki")
 
     def logExportieren(self):
         if (os.path.exists(os.path.join(basedir, "log"))):
@@ -1288,6 +1323,9 @@ class MainWindow(QMainWindow):
     def ueberDosisGdt(self):
         de = dialogUeberDosisGdt.UeberDosisGdt()
         de.exec()
+    
+    def eula(self):
+        QDesktopServices.openUrl("https://gdttools.de/Lizenzvereinbarung_DosisGDT.pdf")
 
 app = QApplication(sys.argv)
 qt = QTranslator()
