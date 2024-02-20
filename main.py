@@ -288,8 +288,19 @@ class MainWindow(QMainWindow):
             mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Problem beim Aktualisieren auf Version " + configIniBase["Allgemein"]["version"], QMessageBox.StandardButton.Ok)
             mb.exec()
 
+        # Pseudo-Lizenz?
+        self.pseudoLizenzId = ""
+        rePatId = r"^patid\d+$"
+        for arg in sys.argv:
+            if re.match(rePatId, arg) != None:
+                logger.logger.info("Pseudo-Lizenz mit id " + arg[5:])
+                self.pseudoLizenzId = arg[5:]
+
         # Add-Ons freigeschaltet?
-        self.addOnsFreigeschaltet = gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT)
+        self.addOnsFreigeschaltet = gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT) or gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDTPSEUDO) and self.pseudoLizenzId != ""
+        if self.lizenzschluessel != "" and gdttoolsL.GdtToolsLizenzschluessel.getSoftwareId(self.lizenzschluessel) == gdttoolsL.SoftwareId.DOSISGDTPSEUDO and self.pseudoLizenzId == "":
+            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Bei Verwendung einer Pseudolizenz muss DosisGDT mit einer Patienten-Id als Startargument im Format \"patid<Pat.-Id>\" ausgeführt werden.", QMessageBox.StandardButton.Ok)
+            mb.exec() 
         
         jahr = datetime.datetime.now().year
         copyrightJahre = "2023"
@@ -323,6 +334,9 @@ class MainWindow(QMainWindow):
             gd = str(gd.getInhalt("3103"))
             self.gebdat = gd[0:2] + "." + gd[2:4] + "." + gd[4:8]
             logger.logger.info("PatientIn " + self.vorname + " " + self.nachname + " (ID: " + self.patId + ") geladen")
+            if self.pseudoLizenzId != "":
+                self.patid = self.pseudoLizenzId
+                logger.logger.info("PatId wegen Pseudolizenz auf " + self.pseudoLizenzId + " gesetzt")
         except (IOError, gdtzeile.GdtFehlerException) as e:
             logger.logger.warning("Fehler beim Laden der GDT-Datei: " + str(e))
             mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Fehler beim Laden der GDT-Datei:\n" + str(e) + "\n\nSoll DosisGDT dennoch geöffnet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -332,10 +346,12 @@ class MainWindow(QMainWindow):
             mbErg = mb.exec()
         if mbErg == QMessageBox.StandardButton.Yes:
             self.widget = QWidget()
-            # self.widget.installEventFilter(self)
+            mainLayoutV = QVBoxLayout()
+            self.labelPseudolizenz = QLabel("+++ Pseudolizenz für Test-/ Präsentationszwecke +++")
+            self.labelPseudolizenz.setStyleSheet("color:rgb(200,0,0);font-style:italic")
             mainSpaltenlayout = QHBoxLayout()
             mainLayoutLinkeSpalte = QVBoxLayout()
-            mailnLayoutRechteSpalte = QVBoxLayout()
+            mainLayoutRechteSpalte = QVBoxLayout()
             self.lineEditBreiteKlein = 50
             self.maxDosenProEinheit = 4
             self.maxDosierungsplanAnweisungen = 5
@@ -577,17 +593,21 @@ class MainWindow(QMainWindow):
             mainLayoutLinkeSpalte.addWidget(groupBoxDosierungsplan)
             mainLayoutLinkeSpalte.addLayout(buttonLayout)
             mainLayoutLinkeSpalte.addWidget(groupBoxPatient)
-            mailnLayoutRechteSpalte.addWidget(groupBoxVorschau)
+            mainLayoutRechteSpalte.addWidget(groupBoxVorschau)
 
             mainSpaltenlayout.addLayout(mainLayoutLinkeSpalte)
-            mainSpaltenlayout.addLayout(mailnLayoutRechteSpalte)
+            mainSpaltenlayout.addLayout(mainLayoutRechteSpalte)
 
             # Statusleiste
             self.statusleiste = QStatusBar()
             self.statusleiste.setFont(self.fontKlein)
             mainLayoutLinkeSpalte.addWidget(self.statusleiste)
 
-            self.widget.setLayout(mainSpaltenlayout)
+            if self.addOnsFreigeschaltet and gdttoolsL.GdtToolsLizenzschluessel.getSoftwareId(self.lizenzschluessel) == gdttoolsL.SoftwareId.DOSISGDTPSEUDO:
+                mainLayoutV.addWidget(self.labelPseudolizenz, alignment=Qt.AlignmentFlag.AlignCenter)
+            
+            mainLayoutV.addLayout(mainSpaltenlayout)
+            self.widget.setLayout(mainLayoutV)
             self.setCentralWidget(self.widget)
             logger.logger.info("Eingabeformular aufgebaut")
 

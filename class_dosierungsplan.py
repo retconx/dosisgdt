@@ -162,6 +162,7 @@ class Dosierungsplan():
             Dictionary mit jeweils key: Medikamentendosis / value: Anzahl Tabletten/Tropfen
         """
         tablettenGesamtmengen = {}
+        heute = datetime.date.today()
         for dosisProEinheit in medikament.dosenProEinheit:
             tablettenGesamtmengen[str(dosisProEinheit)] = 0
         for zeile in dosierungsplanzeilen:
@@ -171,12 +172,15 @@ class Dosierungsplan():
             bisJahr = int(zeile["bisDatum"][6:10])
             bisMonat = int(zeile["bisDatum"][3:5])
             bisTag = int(zeile["bisDatum"][0:2])
-            vonDatum = datetime.date.today()
-            if berechnungAusVergangenheit:
-                vonDatum = datetime.date(vonJahr, vonMonat, vonTag)
+            vonDatum = datetime.date(vonJahr, vonMonat, vonTag)
             bisDatum = datetime.date(bisJahr, bisMonat, bisTag)
             delta = bisDatum - vonDatum
             anzahlTage = delta.days + 1
+            if not berechnungAusVergangenheit:
+                if bisDatum < heute:
+                    anzahlTage = 0
+                elif vonDatum < heute:
+                    anzahlTage -= (heute - bisDatum).days
             for tablette in zeile["tabletten"]:
                 tablettenGesamtmengen[tablette] += zeile["tabletten"][tablette] * anzahlTage
         return tablettenGesamtmengen
@@ -188,6 +192,7 @@ class Aenderung():
         self.zieldosis = zieldosis
 
 if __name__ == "__main__":
+    print("1")
     medikamentenname = "Prednisolon"
     einheit = class_medikament.Einheit.MG
     darreichungsform = class_medikament.Darreichungsform.TABLETTE
@@ -195,7 +200,7 @@ if __name__ == "__main__":
     teilbarkeiten = [class_medikament.Teilbarkeit.VIERTELBAR, class_medikament.Teilbarkeit.HALBIERBAR, class_medikament.Teilbarkeit.HALBIERBAR]
     einschleichen = False
     dosenProTag = 2
-    startDatum = "23102023"
+    startDatum = "15112023"
     startDosis = 25
     startDosisDauer = 7
 

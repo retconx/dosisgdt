@@ -12,8 +12,10 @@ datum = datetime.datetime.strftime(datetime.datetime.today(), "%Y%m%d")
 logHandler = logging.FileHandler(os.path.join(basedir, "log/" + datum + "_dosisgdt.log"), mode="a", encoding="utf_8")
 logLevel = logging.WARNING
 logForm = logging.Formatter("{asctime} {levelname:8}: {message}", "%d.%m.%Y %H:%M:%S", "{")
-if len(sys.argv) == 2 and sys.argv[1].upper() == "DEBUG":
-    logLevel = logging.DEBUG
+for arg in sys.argv:
+    if arg.lower() == "debug":
+        logLevel = logging.DEBUG
+        break
 logHandler.setFormatter(logForm)
 logger = logging.getLogger(__name__)
 logger.addHandler(logHandler)
