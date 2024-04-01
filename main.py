@@ -39,7 +39,7 @@ else:
     logListe = os.listdir(os.path.join(basedir, "log"))
     logListe.sort()
     if len(logListe) > 5:
-        os.remove(os.path.join(basedir, "log/" + logListe[0]))
+        os.remove(os.path.join(basedir, "log", logListe[0]))
 datum = datetime.datetime.strftime(datetime.datetime.today(), "%Y%m%d")
 
 def versionVeraltet(versionAktuell:str, versionVergleich:str):
@@ -1353,7 +1353,7 @@ filename = "qtbase_de"
 directory = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
 qt.load(filename, directory)
 app.installTranslator(qt)
-app.setWindowIcon(QIcon(os.path.join(basedir, "icons/program.png")))
+app.setWindowIcon(QIcon(os.path.join(basedir, "icons", "program.png")))
 window = MainWindow()
 window.show()
 
