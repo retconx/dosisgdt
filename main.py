@@ -1,5 +1,8 @@
 import sys, configparser, os, datetime, shutil,logger, re
-import gdt, gdtzeile, gdttoolsL
+import gdt, gdtzeile
+## Nur mit Lizenz
+import gdttoolsL
+## /Nur mit Lizenz
 import xml.etree.ElementTree as ElementTree
 from fpdf import FPDF, enums
 import class_medikament, class_dosierungsplan, dialogUeberDosisGdt, dialogEinstellungenGdt, dialogEinstellungenAllgemein, dialogEinstellungenLanrLizenzschluessel, dialogEinstellungenImportExport, dialogVorlagenVerwalten, dialogEula
@@ -214,6 +217,7 @@ class MainWindow(QMainWindow):
         self.lanr = self.configIni["Erweiterungen"]["lanr"]
         self.lizenzschluessel = self.configIni["Erweiterungen"]["lizenzschluessel"]
 
+        ## Nur mit Lizenz
         # Prüfen, ob Lizenzschlüssel unverschlüsselt
         if len(self.lizenzschluessel) == 29:
             logger.logger.info("Lizenzschlüssel unverschlüsselt")
@@ -222,6 +226,7 @@ class MainWindow(QMainWindow):
                     self.configIni.write(configfile)
         else:
             self.lizenzschluessel = gdttoolsL.GdtToolsLizenzschluessel.dekrypt(self.lizenzschluessel)
+        ## /Nur mit Lizenz
 
         # Prüfen, ob EULA gelesen
         if not self.eulagelesen:
@@ -244,7 +249,9 @@ class MainWindow(QMainWindow):
             mb = QMessageBox(QMessageBox.Icon.Question, "Hinweis von DosisGDT", "Vermutlich starten Sie DosisGDT das erste Mal auf diesem PC.\nMöchten Sie jetzt die Grundeinstellungen vornehmen?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             mb.setDefaultButton(QMessageBox.StandardButton.Yes)
             if mb.exec() == QMessageBox.StandardButton.Yes:
+                ## Nur mit Lizenz
                 self.einstellungenLanrLizenzschluessel()
+                ## /Nur mit Lizenz
                 self.einstellungenGdt()
                 self.einstellungenAllgemein(True)
 
@@ -288,6 +295,9 @@ class MainWindow(QMainWindow):
             mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Problem beim Aktualisieren auf Version " + configIniBase["Allgemein"]["version"], QMessageBox.StandardButton.Ok)
             mb.exec()
 
+        self.addOnsFreigeschaltet = True
+        
+        ## Nur mit Lizenz
         # Pseudo-Lizenz?
         self.pseudoLizenzId = ""
         rePatId = r"^patid\d+$"
@@ -301,6 +311,7 @@ class MainWindow(QMainWindow):
         if self.lizenzschluessel != "" and gdttoolsL.GdtToolsLizenzschluessel.getSoftwareId(self.lizenzschluessel) == gdttoolsL.SoftwareId.DOSISGDTPSEUDO and self.pseudoLizenzId == "":
             mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Bei Verwendung einer Pseudolizenz muss DosisGDT mit einer Patienten-Id als Startargument im Format \"patid<Pat.-Id>\" ausgeführt werden.", QMessageBox.StandardButton.Ok)
             mb.exec() 
+        ## /Nur mit Lizenz
         
         jahr = datetime.datetime.now().year
         copyrightJahre = "2023"
@@ -334,9 +345,11 @@ class MainWindow(QMainWindow):
             gd = str(gd.getInhalt("3103"))
             self.gebdat = gd[0:2] + "." + gd[2:4] + "." + gd[4:8]
             logger.logger.info("PatientIn " + self.vorname + " " + self.nachname + " (ID: " + self.patId + ") geladen")
+            ## Nur mit Lizenz
             if self.pseudoLizenzId != "":
                 self.patid = self.pseudoLizenzId
                 logger.logger.info("PatId wegen Pseudolizenz auf " + self.pseudoLizenzId + " gesetzt")
+            ## /Nur mit Lizenz
         except (IOError, gdtzeile.GdtFehlerException) as e:
             logger.logger.warning("Fehler beim Laden der GDT-Datei: " + str(e))
             mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Fehler beim Laden der GDT-Datei:\n" + str(e) + "\n\nSoll DosisGDT dennoch geöffnet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -603,9 +616,11 @@ class MainWindow(QMainWindow):
             self.statusleiste.setFont(self.fontKlein)
             mainLayoutLinkeSpalte.addWidget(self.statusleiste)
 
+            ## Nur mit Lizenz
             if self.addOnsFreigeschaltet and gdttoolsL.GdtToolsLizenzschluessel.getSoftwareId(self.lizenzschluessel) == gdttoolsL.SoftwareId.DOSISGDTPSEUDO:
                 mainLayoutV.addWidget(self.labelPseudolizenz, alignment=Qt.AlignmentFlag.AlignCenter)
-            
+            ## /Nur mit Lizenz
+
             mainLayoutV.addLayout(mainSpaltenlayout)
             self.widget.setLayout(mainLayoutV)
             self.setCentralWidget(self.widget)
@@ -643,6 +658,7 @@ class MainWindow(QMainWindow):
             einstellungenGdtAction = QAction("GDT-Einstellungen", self)
             einstellungenGdtAction.triggered.connect(lambda neustartfrage: self.einstellungenGdt(True)) # type: ignore
             einstellungenGdtAction.setShortcut(QKeySequence("Ctrl+G"))
+            ## Nur mit Lizenz
             einstellungenErweiterungenAction = QAction("LANR/Lizenzschlüssel", self)
             einstellungenErweiterungenAction.triggered.connect(lambda neustartfrage: self.einstellungenLanrLizenzschluessel(True)) # type: ignore
             einstellungenErweiterungenAction.setShortcut(QKeySequence("Ctrl+L"))
@@ -650,6 +666,7 @@ class MainWindow(QMainWindow):
             einstellungenImportExportAction.triggered.connect(self.einstellungenImportExport) # type: ignore
             einstellungenImportExportAction.setShortcut(QKeySequence("Ctrl+I"))
             einstellungenImportExportAction.setMenuRole(QAction.MenuRole.NoRole)
+            ## /Nur mit Lizenz
             hilfeMenu = menubar.addMenu("Hilfe")
             hilfeWikiAction = QAction("DosisGDT Wiki", self)
             hilfeWikiAction.triggered.connect(self.dosisgdtWiki) # type: ignore
@@ -676,8 +693,10 @@ class MainWindow(QMainWindow):
 
             einstellungenMenu.addAction(einstellungenAllgemeinAction)
             einstellungenMenu.addAction(einstellungenGdtAction)
+            ## Nur mit Lizenz
             einstellungenMenu.addAction(einstellungenErweiterungenAction)
             einstellungenMenu.addAction(einstellungenImportExportAction)
+            ## /Nur mit Lizenz
             hilfeMenu.addAction(hilfeWikiAction)
             hilfeMenu.addSeparator()
             hilfeMenu.addAction(hilfeUpdateAction)
@@ -1281,6 +1300,7 @@ class MainWindow(QMainWindow):
                 if mb.exec() == QMessageBox.StandardButton.Yes:
                     os.execl(sys.executable, __file__, *sys.argv)
     
+    ## Nur mit Lizenz
     def einstellungenLanrLizenzschluessel(self, neustartfrage=False):
         de = dialogEinstellungenLanrLizenzschluessel.EinstellungenProgrammerweiterungen(self.configPath)
         if de.exec() == 1:
@@ -1304,6 +1324,7 @@ class MainWindow(QMainWindow):
         de = dialogEinstellungenImportExport.EinstellungenImportExport(self.configPath)
         if de.exec() == 1:
             pass    
+    ## /Nur mit Lizenz
 
     def dosisgdtWiki(self, link):
         QDesktopServices.openUrl("https://github.com/retconx/dosisgdt/wiki")
