@@ -250,10 +250,13 @@ class MainWindow(QMainWindow):
             mb.setDefaultButton(QMessageBox.StandardButton.Yes)
             if mb.exec() == QMessageBox.StandardButton.Yes:
                 ## Nur mit Lizenz
-                self.einstellungenLanrLizenzschluessel()
+                self.einstellungenLanrLizenzschluessel(False, False)
                 ## /Nur mit Lizenz
-                self.einstellungenGdt()
-                self.einstellungenAllgemein(True)
+                self.einstellungenGdt(False, False)
+                self.einstellungenAllgemein(False, False)
+                mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Die Ersteinrichtung ist abgeschlossen. DosisGDT wird beendet.", QMessageBox.StandardButton.Ok)
+                mb.exec()
+                sys.exit()
 
         # Version vergleichen und gegebenenfalls aktualisieren
         configIniBase = configparser.ConfigParser()
@@ -352,7 +355,7 @@ class MainWindow(QMainWindow):
             ## /Nur mit Lizenz
         except (IOError, gdtzeile.GdtFehlerException) as e:
             logger.logger.warning("Fehler beim Laden der GDT-Datei: " + str(e))
-            mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Fehler beim Laden der GDT-Datei:\n" + str(e) + "\n\nSoll DosisGDT dennoch geöffnet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            mb = QMessageBox(QMessageBox.Icon.Information, "Hinweis von DosisGDT", "Fehler beim Laden der GDT-Datei:\n" + str(e) + "\n\nDieser Fehler hat in der Regel eine der folgenden Ursachen:\n- Die im PVS und in DosisGDT konfigurierten GDT-Austauschverzeichnisse stimmen nicht überein.\n- DosisGDT wurde nicht aus dem PVS heraus gestartet, so dass keine vom PVS erzeugte GDT-Datei gefunden werden konnte.\n\nSoll DosisGDT dennoch geöffnet werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             mb.button(QMessageBox.StandardButton.Yes).setText("Ja")
             mb.button(QMessageBox.StandardButton.No).setText("Nein")
             mb.setDefaultButton(QMessageBox.StandardButton.No)
@@ -653,14 +656,14 @@ class MainWindow(QMainWindow):
             vorlagenMenuVorlagenVerwaltenAction.triggered.connect(self.vorlagenMenuVorlagenVerwalten) # type: ignore
             einstellungenMenu = menubar.addMenu("Einstellungen")
             einstellungenAllgemeinAction = QAction("Allgemeine Einstellungen", self)
-            einstellungenAllgemeinAction.triggered.connect(lambda neustartfrage: self.einstellungenAllgemein(True)) # type: ignore
+            einstellungenAllgemeinAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenAllgemein(checked, neustartfrage)) # type: ignore
             einstellungenAllgemeinAction.setShortcut(QKeySequence("Ctrl+E"))
             einstellungenGdtAction = QAction("GDT-Einstellungen", self)
-            einstellungenGdtAction.triggered.connect(lambda neustartfrage: self.einstellungenGdt(True)) # type: ignore
+            einstellungenGdtAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenGdt(checked, neustartfrage)) # type: ignore
             einstellungenGdtAction.setShortcut(QKeySequence("Ctrl+G"))
             ## Nur mit Lizenz
             einstellungenErweiterungenAction = QAction("LANR/Lizenzschlüssel", self)
-            einstellungenErweiterungenAction.triggered.connect(lambda neustartfrage: self.einstellungenLanrLizenzschluessel(True)) # type: ignore
+            einstellungenErweiterungenAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenLanrLizenzschluessel(checked, neustartfrage)) # type: ignore
             einstellungenErweiterungenAction.setShortcut(QKeySequence("Ctrl+L"))
             einstellungenImportExportAction = QAction("Im- /Exportieren", self)
             einstellungenImportExportAction.triggered.connect(self.einstellungenImportExport) # type: ignore
@@ -1258,7 +1261,7 @@ class MainWindow(QMainWindow):
             mb.setTextFormat(Qt.TextFormat.RichText)
             mb.exec()
         
-    def einstellungenAllgemein(self, neustartfrage = False):
+    def einstellungenAllgemein(self, checked, neustartfrage):
         de = dialogEinstellungenAllgemein.EinstellungenAllgemein(self.configPath)
         if de.exec() == 1:
             self.configIni["Allgemein"]["einrichtungsname"] = de.lineEditEinrichtungsname.text()
@@ -1280,7 +1283,7 @@ class MainWindow(QMainWindow):
                 if mb.exec() == QMessageBox.StandardButton.Yes:
                     os.execl(sys.executable, __file__, *sys.argv)
         
-    def einstellungenGdt(self, neustartfrage=False):
+    def einstellungenGdt(self, checked, neustartfrage):
         de = dialogEinstellungenGdt.EinstellungenGdt(self.configPath)
         if de.exec() == 1:
             self.configIni["GDT"]["iddosisgdt"] = de.lineEditDosisGdtId.text()
@@ -1301,7 +1304,7 @@ class MainWindow(QMainWindow):
                     os.execl(sys.executable, __file__, *sys.argv)
     
     ## Nur mit Lizenz
-    def einstellungenLanrLizenzschluessel(self, neustartfrage=False):
+    def einstellungenLanrLizenzschluessel(self, checked, neustartfrage):
         de = dialogEinstellungenLanrLizenzschluessel.EinstellungenProgrammerweiterungen(self.configPath)
         if de.exec() == 1:
             self.configIni["Erweiterungen"]["lanr"] = de.lineEditLanr.text()
