@@ -1,4 +1,4 @@
-import sys, configparser, os, datetime, shutil,logger, re
+import sys, configparser, os, datetime, shutil,logger, re, atexit, subprocess
 import gdt, gdtzeile
 ## Nur mit Lizenz
 import gdttoolsL
@@ -206,6 +206,13 @@ class MainWindow(QMainWindow):
         self.eulagelesen = False
         if self.configIni.has_option("Allgemein", "eulagelesen"):
             self.eulagelesen = self.configIni["Allgemein"]["eulagelesen"] == "True"
+        # 1.2.0
+        self.autoupdate = True
+        self.updaterpfad = ""
+        if self.configIni.has_option("Allgemein", "autoupdate"):
+            self.autoupdate = self.configIni["Allgemein"]["autoupdate"] == "True"
+        if self.configIni.has_option("Allgemein", "updaterpfad"):
+            self.updaterpfad = self.configIni["Allgemein"]["updaterpfad"]
         # /Nachträglich hinzufefügte Options
 
         z = self.configIni["GDT"]["zeichensatz"]
@@ -271,6 +278,11 @@ class MainWindow(QMainWindow):
                 if not self.configIni.has_option("Allgemein", "vorlagenverzeichnis"):
                     self.configIni["Allgemein"]["vorlagenverzeichnis"] = ""
                     self.vorlagenverzeichnis = ""
+                # 1.1.10 -> 1.2.0 ["Allgemein"]["autoupdate"] und ["Allgemein"]["updaterpfad"] hinzufügen
+                if not self.configIni.has_option("Allgemein", "autoupdate"):
+                    self.configIni["Allgemein"]["autoupdate"] = "True"
+                if not self.configIni.has_option("Allgemein", "updaterpfad"):
+                    self.configIni["Allgemein"]["updaterpfad"] = ""
                 # /config.ini aktualisieren
 
                 with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
@@ -677,6 +689,10 @@ class MainWindow(QMainWindow):
             hilfeUpdateAction = QAction("Auf Update prüfen", self)
             hilfeUpdateAction.triggered.connect(self.updatePruefung) # type: ignore
             hilfeUpdateAction.setShortcut(QKeySequence("Ctrl+U"))
+            hilfeAutoUpdateAction = QAction("Automatisch auf Update prüfen", self)
+            hilfeAutoUpdateAction.setCheckable(True)
+            hilfeAutoUpdateAction.setChecked(self.autoupdate)
+            hilfeAutoUpdateAction.triggered.connect(self.autoUpdatePruefung)
             hilfeUeberAction = QAction("Über DosisGDT", self)
             hilfeUeberAction.setMenuRole(QAction.MenuRole.NoRole)
             hilfeUeberAction.triggered.connect(self.ueberDosisGdt) # type: ignore
@@ -703,6 +719,7 @@ class MainWindow(QMainWindow):
             hilfeMenu.addAction(hilfeWikiAction)
             hilfeMenu.addSeparator()
             hilfeMenu.addAction(hilfeUpdateAction)
+            hilfeMenu.addAction(hilfeAutoUpdateAction)
             hilfeMenu.addSeparator()
             hilfeMenu.addAction(hilfeUeberAction)
             hilfeMenu.addAction(hilfeEulaAction)
@@ -710,12 +727,13 @@ class MainWindow(QMainWindow):
             hilfeMenu.addAction(hilfeLogExportieren)
 
             # Updateprüfung auf Github
-            try:
-                self.updatePruefung(meldungNurWennUpdateVerfuegbar=True)
-            except Exception as e:
-                mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Updateprüfung nicht möglich.\nBitte überprüfen Sie Ihre Internetverbindung.", QMessageBox.StandardButton.Ok)
-                mb.exec()
-                logger.logger.warning("Updateprüfung nicht möglich: " + str(e))
+            if self.autoupdate:
+                try:
+                    self.updatePruefung(meldungNurWennUpdateVerfuegbar=True)
+                except Exception as e:
+                    mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Updateprüfung nicht möglich.\nBitte überprüfen Sie Ihre Internetverbindung.", QMessageBox.StandardButton.Ok)
+                    mb.exec()
+                    logger.logger.warning("Updateprüfung nicht möglich: " + str(e))
         else:
             sys.exit()
 
@@ -1188,7 +1206,7 @@ class MainWindow(QMainWindow):
             gd.addZeile("6201", untdatDatetime.strftime("%H%M%S"))
             gd.addZeile("8402", "ALLG01")
             # PDF hinzufügen
-            if self.configIni["Allgemein"]["pdferstellen"] == "1" and gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
+            if self.configIni["Allgemein"]["pdferstellen"] == "1" and (gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT) or gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDTPSEUDO)):
                 gd.addZeile("6302", "dosierungsplan")
                 gd.addZeile("6303", "pdf")
                 gd.addZeile("6304", self.configIni["Allgemein"]["pdfbezeichnung"])
@@ -1200,7 +1218,7 @@ class MainWindow(QMainWindow):
             gd.addZeile("6228", "")
             gd.addZeile("6228", medikament.name + "-Verbrauch ab " + untdatDatetime.strftime("%d.%m.%Y") + ":")
             tablettenGesamtmengen = class_dosierungsplan.Dosierungsplan.getTablettenGesamtmengen(dp, medikament, False)
-            if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
+            if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT) or gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDTPSEUDO):
                 for tablette in tablettenGesamtmengen:
                     if medikament.darreichungsform == class_medikament.Darreichungsform.TABLETTE:
                         gd.addZeile("6228", tablette + " " + medikament.einheit.value + ": " + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück")
@@ -1273,6 +1291,8 @@ class MainWindow(QMainWindow):
             if de.checkboxEinrichtungAufPdf.isChecked():
                 self.configIni["Allgemein"]["einrichtungAufPdf"] = "1"
             self.configIni["Allgemein"]["vorlagenverzeichnis"] = de.lineEditVorlagenverzeichnis.text()
+            self.configIni["Allgemein"]["updaterpfad"] = de.lineEditUpdaterPfad.text()
+            self.configIni["Allgemein"]["autoupdate"] = str(de.checkBoxAutoUpdate.isChecked())  
             with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
                 self.configIni.write(configfile)
             if neustartfrage:
@@ -1352,16 +1372,69 @@ class MainWindow(QMainWindow):
             mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Das Log-Verzeichnis wurde nicht gefunden.", QMessageBox.StandardButton.Ok)
             mb.exec() 
                 
+    # def updatePruefung(self, meldungNurWennUpdateVerfuegbar = False):
+    #     response = requests.get("https://api.github.com/repos/retconx/dosisgdt/releases/latest")
+    #     githubRelaseTag = response.json()["tag_name"]
+    #     latestVersion = githubRelaseTag[1:] # ohne v
+    #     if versionVeraltet(self.version, latestVersion):
+    #         mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Die aktuellere DosisGDT-Version " + latestVersion + " ist auf <a href='https://github.com/retconx/dosisgdt/releases'>Github</a> verfügbar.", QMessageBox.StandardButton.Ok)
+    #         mb.setTextFormat(Qt.TextFormat.RichText)
+    #         mb.exec()
+    #     elif not meldungNurWennUpdateVerfuegbar:
+    #         mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Sie nutzen die aktuelle DosisGDT-Version.", QMessageBox.StandardButton.Ok)
+    #         mb.exec()
+    
+    def autoUpdatePruefung(self, checked):
+        self.autoupdate = checked
+        self.configIni["Allgemein"]["autoupdate"] = str(checked)
+        with open(os.path.join(self.configPath, "config.ini"), "w") as configfile:
+            self.configIni.write(configfile)
+
     def updatePruefung(self, meldungNurWennUpdateVerfuegbar = False):
+        logger.logger.info("Updateprüfung")
         response = requests.get("https://api.github.com/repos/retconx/dosisgdt/releases/latest")
         githubRelaseTag = response.json()["tag_name"]
         latestVersion = githubRelaseTag[1:] # ohne v
         if versionVeraltet(self.version, latestVersion):
-            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Die aktuellere DosisGDT-Version " + latestVersion + " ist auf <a href='https://www.github.com/retconx/dosisgdt/releases'>Github</a> verfügbar.", QMessageBox.StandardButton.Ok)
-            mb.setTextFormat(Qt.TextFormat.RichText)
-            mb.exec()
+            logger.logger.info("Bisher: " + self.version + ", neu: " + latestVersion)
+            if os.path.exists(self.updaterpfad):
+                mb = QMessageBox(QMessageBox.Icon.Question, "Hinweis von DosisGDT", "Die aktuellere DosisGDT-Version " + latestVersion + " ist auf Github verfügbar.\nSoll der GDT-Tools Updater geladen werden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                mb.setDefaultButton(QMessageBox.StandardButton.Yes)
+                mb.button(QMessageBox.StandardButton.Yes).setText("Ja")
+                mb.button(QMessageBox.StandardButton.No).setText("Nein")
+                if mb.exec() == QMessageBox.StandardButton.Yes:
+                    logger.logger.info("Updater wird geladen")
+                    atexit.register(self.updaterLaden)
+                    sys.exit()
+            else:
+                mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Die aktuellere DosisGDT-Version " + latestVersion + " ist auf <a href='https://github.com/retconx/dosisgdt/releases'>Github</a> verfügbar.<br />Bitte beachten Sie auch die Möglichkeit, den Updateprozess mit dem <a href='https://github.com/retconx/gdttoolsupdater/wiki'>GDT-Tools Updater</a> zu automatisieren.", QMessageBox.StandardButton.Ok)
+                mb.setTextFormat(Qt.TextFormat.RichText)
+                mb.exec()
         elif not meldungNurWennUpdateVerfuegbar:
             mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Sie nutzen die aktuelle DosisGDT-Version.", QMessageBox.StandardButton.Ok)
+            mb.exec()
+
+    def updaterLaden(self):
+        sex = sys.executable
+        programmverzeichnis = ""
+        logger.logger.info("sys.executable: " + sex)
+        if "win32" in sys.platform:
+            programmverzeichnis = sex[:sex.rfind("dosisgdt.exe")]
+        elif "darwin" in sys.platform:
+            programmverzeichnis = sex[:sex.find("DosisGDT.app")]
+        elif "win32" in sys.platform:
+            programmverzeichnis = sex[:sex.rfind("dosisgdt")]
+        logger.logger.info("Programmverzeichnis: " + programmverzeichnis)
+        try:
+            if "win32" in sys.platform:
+                subprocess.Popen([self.updaterpfad, "dosisgdt", self.version, programmverzeichnis], creationflags=subprocess.DETACHED_PROCESS) # type: ignore
+            elif "darwin" in sys.platform:
+                subprocess.Popen(["open", "-a", self.updaterpfad, "--args", "dosisgdt", self.version, programmverzeichnis])
+            elif "linux" in sys.platform:
+                subprocess.Popen([self.updaterpfad, "dosisgdt", self.version, programmverzeichnis])
+        except Exception as e:
+            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Der GDT-Tools Updater konnte nicht gestartet werden", QMessageBox.StandardButton.Ok)
+            logger.logger.error("Fehler beim Starten des GDT-Tools Updaters: " + str(e))
             mb.exec()
     
     def ueberDosisGdt(self):

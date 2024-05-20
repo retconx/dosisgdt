@@ -27,7 +27,7 @@ class UeberDosisGdt(QDialog):
         labelBeschreibung.setAlignment(Qt.AlignmentFlag.AlignJustify)
         labelBeschreibung.setWordWrap(True)
         labelBeschreibung.setTextFormat(Qt.TextFormat.RichText)
-        labelEntwickelsVon = QLabel("<span style='color:rgb(0,0,200);font-weight:bold'>Entwickelt von:</span><br>Fabian Treusch<br><a href='http://www.gdttools.de'>www.gdttools.de</a>")
+        labelEntwickelsVon = QLabel("<span style='color:rgb(0,0,200);font-weight:bold'>Entwickelt von:</span><br>Fabian Treusch<br><a href='http://gdttools.de'>gdttools.de</a>")
         labelEntwickelsVon.setTextFormat(Qt.TextFormat.RichText)
         labelEntwickelsVon.linkActivated.connect(self.gdtToolsLinkGeklickt)
         labelHilfe = QLabel("<span style='color:rgb(0,0,200);font-weight:bold'>Hilfe:</span><br><a href='https://github.com/retconx/dosisgdt/wiki'>DosisGDT Wiki</a>")

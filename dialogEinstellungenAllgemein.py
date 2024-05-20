@@ -1,5 +1,5 @@
-import configparser, os, gdttoolsL, re
-from PySide6.QtGui import QPalette
+import configparser, os, gdttoolsL, re, sys
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDialog,
@@ -17,6 +17,10 @@ from PySide6.QtWidgets import (
 class EinstellungenAllgemein(QDialog):
     def __init__(self, configPath):
         super().__init__()
+        self.fontNormal = QFont()
+        self.fontNormal.setBold(False)
+        self.fontBold = QFont()
+        self.fontBold.setBold(True)
 
         #config.ini lesen
         configIni = configparser.ConfigParser()
@@ -31,6 +35,8 @@ class EinstellungenAllgemein(QDialog):
         self.vorlagenverzeichnis = ""
         if configIni.has_option("Allgemein", "vorlagenverzeichnis"): # wurde erst mit 1.1.0 eingeführt
             self.vorlagenverzeichnis = configIni["Allgemein"]["vorlagenverzeichnis"]
+        self.autoupdate = configIni["Allgemein"]["autoupdate"] == "True"
+        self.updaterpfad = configIni["Allgemein"]["updaterpfad"]
 
         self.setWindowTitle("Allgemeine Einstellungen")
         self.setMinimumWidth(500)
@@ -47,34 +53,34 @@ class EinstellungenAllgemein(QDialog):
         dialogLayoutV = QVBoxLayout()
         # Groupox Name der Einrichtung
         groupboxEinrichtung = QGroupBox("Name der Einrichtung")
-        groupboxEinrichtung.setStyleSheet("font-weight:bold")
+        groupboxEinrichtung.setFont(self.fontBold)
         self.lineEditEinrichtungsname = QLineEdit(self.einrichtungsname)
         self.lineEditEinrichtungsname.setPlaceholderText("Hausarztpraxis XY")
-        self.lineEditEinrichtungsname.setStyleSheet("font-weight:normal")
+        self.lineEditEinrichtungsname.setFont(self.fontNormal)
         groupboxLayoutEinrichtung = QVBoxLayout()
         groupboxLayoutEinrichtung.addWidget(self.lineEditEinrichtungsname)
         groupboxEinrichtung.setLayout(groupboxLayoutEinrichtung)
 
         # Groupbox PDF-Erstellung
         groupboxPdfErstellung = QGroupBox("PDF-Erstellung")
-        groupboxPdfErstellung.setStyleSheet("font-weight:bold")
+        groupboxPdfErstellung.setFont(self.fontBold)
         labelKeineRegistrierung = QLabel("Für diese Funktion ist eine gültige LANR/Lizenzschlüsselkombination erforderlich.")
         labelKeineRegistrierung.setStyleSheet("font-weight:normal;color:rgb(0,0,200)")
         labelKeineRegistrierung.setVisible(False)
         labelPdfErstellen = QLabel("PDF erstellen und per GDT übertragen")
-        labelPdfErstellen.setStyleSheet("font-weight:normal")
+        labelPdfErstellen.setFont(self.fontNormal)
         self.checkboxPdfErstellen = QCheckBox()
         self.checkboxPdfErstellen.setChecked(self.pdfErstellen)
         self.checkboxPdfErstellen.stateChanged.connect(self.checkboxPdfErstellenChanged) # type: ignore
         labelEinrichtungAufPdf = QLabel("Einrichtungsname übernehmen")
-        labelEinrichtungAufPdf.setStyleSheet("font-weight:normal")
+        labelEinrichtungAufPdf.setFont(self.fontNormal)
         self.checkboxEinrichtungAufPdf = QCheckBox()
         self.checkboxEinrichtungAufPdf.setChecked(self.einrichtungAufPdf)
         self.checkboxEinrichtungAufPdf.stateChanged.connect(self.checkboxEinrichtungAufPdfChanged) # type: ignore
         labelPdfBezeichnung = QLabel("PDF-Bezeichnung in Karteikarte:")
-        labelPdfBezeichnung.setStyleSheet("font-weight:normal")
+        labelPdfBezeichnung.setFont(self.fontNormal)
         self.lineEditPdfBezeichnung = QLineEdit(self.pdfbezeichnung)
-        self.lineEditPdfBezeichnung.setStyleSheet("font-weight:normal")
+        self.lineEditPdfBezeichnung.setFont(self.fontNormal)
         self.lineEditPdfBezeichnung.setPlaceholderText("Dosierungsplan")
         # PDF-Erstellung daktivieren, falls nicht lizensiert
         if not gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(lizenzschluessel, configIni["Erweiterungen"]["lanr"], gdttoolsL.SoftwareId.DOSISGDT):
@@ -96,13 +102,13 @@ class EinstellungenAllgemein(QDialog):
 
         # Groupox Vorlagen
         groupboxVorlagen = QGroupBox("Dosierungsplan-Vorlagen")
-        groupboxVorlagen.setStyleSheet("font-weight:bold")
+        groupboxVorlagen.setFont(self.fontBold)
         labelVorlagenverzeichnis = QLabel("Vorlagenverzeichnis:")
-        labelVorlagenverzeichnis.setStyleSheet("font-weight:normal")
+        labelVorlagenverzeichnis.setFont(self.fontNormal)
         self.lineEditVorlagenverzeichnis= QLineEdit(self.vorlagenverzeichnis)
-        self.lineEditVorlagenverzeichnis.setStyleSheet("font-weight:normal")
+        self.lineEditVorlagenverzeichnis.setFont(self.fontNormal)
         buttonDurchsuchenVorlagenverzeichnis = QPushButton("Durchsuchen")
-        buttonDurchsuchenVorlagenverzeichnis.setStyleSheet("font-weight:normal")
+        buttonDurchsuchenVorlagenverzeichnis.setFont(self.fontNormal)
         buttonDurchsuchenVorlagenverzeichnis.clicked.connect(self.durchsuchenVorlagenverzeichnis) # type: ignore
         groupboxLayoutVorlagen = QGridLayout()
         groupboxLayoutVorlagen.addWidget(labelVorlagenverzeichnis, 0, 0, 1, 2)
@@ -110,9 +116,34 @@ class EinstellungenAllgemein(QDialog):
         groupboxLayoutVorlagen.addWidget(buttonDurchsuchenVorlagenverzeichnis, 1, 1)
         groupboxVorlagen.setLayout(groupboxLayoutVorlagen)
 
+        # GroupBox Updates
+        groupBoxUpdatesLayoutG = QGridLayout()
+        groupBoxUpdates = QGroupBox("Updates")
+        groupBoxUpdates.setFont(self.fontBold)
+        labelUpdaterPfad = QLabel("Updater-Pfad")
+        labelUpdaterPfad.setFont(self.fontNormal)
+        self.lineEditUpdaterPfad= QLineEdit(self.updaterpfad)
+        self.lineEditUpdaterPfad.setFont(self.fontNormal)
+        self.lineEditUpdaterPfad.setToolTip(self.updaterpfad)
+        if not os.path.exists(self.updaterpfad):
+            self.lineEditUpdaterPfad.setStyleSheet("background:rgb(255,200,200)")
+        self.pushButtonUpdaterPfad = QPushButton("...")
+        self.pushButtonUpdaterPfad.setFont(self.fontNormal)
+        self.pushButtonUpdaterPfad.setToolTip("Pfad zum GDT-Tools Updater auswählen")
+        self.pushButtonUpdaterPfad.clicked.connect(self.pushButtonUpdaterPfadClicked)
+        self.checkBoxAutoUpdate = QCheckBox("Automatisch auf Update prüfen")
+        self.checkBoxAutoUpdate.setFont(self.fontNormal)
+        self.checkBoxAutoUpdate.setChecked(self.autoupdate)
+        groupBoxUpdatesLayoutG.addWidget(labelUpdaterPfad, 0, 0)
+        groupBoxUpdatesLayoutG.addWidget(self.lineEditUpdaterPfad, 0, 1)
+        groupBoxUpdatesLayoutG.addWidget(self.pushButtonUpdaterPfad, 0, 2)
+        groupBoxUpdatesLayoutG.addWidget(self.checkBoxAutoUpdate, 1, 0)
+        groupBoxUpdates.setLayout(groupBoxUpdatesLayoutG)
+
         dialogLayoutV.addWidget(groupboxEinrichtung)
         dialogLayoutV.addWidget(groupboxPdfErstellung)
         dialogLayoutV.addWidget(groupboxVorlagen)
+        dialogLayoutV.addWidget(groupBoxUpdates)
         dialogLayoutV.addWidget(self.buttonBox)
         dialogLayoutV.setContentsMargins(10, 10, 10, 10)
         dialogLayoutV.setSpacing(20)
@@ -138,6 +169,24 @@ class EinstellungenAllgemein(QDialog):
         if fd.exec() == 1:
             self.dokuverzeichnis = fd.directory()
             self.lineEditVorlagenverzeichnis.setText(fd.directory().path())
+
+    def pushButtonUpdaterPfadClicked(self):
+        fd = QFileDialog(self)
+        fd.setFileMode(QFileDialog.FileMode.ExistingFile)
+        if os.path.exists(self.lineEditUpdaterPfad.text()):
+            fd.setDirectory(os.path.dirname(self.lineEditUpdaterPfad.text()))
+        fd.setWindowTitle("Updater-Pfad auswählen")
+        fd.setModal(True)
+        if "win32" in sys.platform:
+            fd.setNameFilters(["exe-Dateien (*.exe)"])
+        elif "darwin" in sys.platform:
+            fd.setNameFilters(["app-Bundles (*.app)"])
+        fd.setLabelText(QFileDialog.DialogLabel.Accept, "Auswählen")
+        fd.setLabelText(QFileDialog.DialogLabel.Reject, "Abbrechen")
+        if fd.exec() == 1:
+            self.lineEditUpdaterPfad.setText(fd.selectedFiles()[0])
+            self.lineEditUpdaterPfad.setToolTip(fd.selectedFiles()[0])
+            self.lineEditUpdaterPfad.setStyleSheet("background:rgb(255,255,255)")
 
     def accept(self):
         regexPattern = "[/.,]"
