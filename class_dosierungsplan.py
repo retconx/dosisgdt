@@ -1,217 +1,180 @@
-import class_medikament, logger
+import class_tageseinnahme, class_enums, class_tablette, logger
 import datetime
 
-class DosierungsfehlerException(Exception):
-    def __init__(self, meldung:str, aenderungsanweisung:int):
-        self.meldung = meldung
-        self.aenderungsanweisung = aenderungsanweisung
+
+class DosierungsplanFehler(Exception):
+    def __init__(self, message:str):
+        self.message = message
+
     def __str__(self):
-        return self.meldung
+        return "Dosierungsplanfehler: " + self.message
     
-class Dosierungsplan():
-    def __init__(self, einschleichen:bool, medikament:class_medikament.Medikament, maximaleTablettenzahlProEinheit: int, verteiltAufZweiDosen:bool, prioritaetMorgens:bool):
+class Dosierungsplan:
+    def __init__(self, applikationsliste:list, startDosis:float, startDatum:datetime.date, startZeitraum:int, anzahlTagesdosen:class_enums.AnzahlTagesdosen, dosisTeilWichtung:class_enums.DosisteilWichtung, einschleichen:bool):
+        self.applikationsliste = applikationsliste
+        self.startDosis = startDosis
+        self.startDatum = startDatum
+        self.startZeitraum = startZeitraum
+        self.aenderungsanweisungen = [] # Liste von {reduktionUm:float, reduktionFuer:int, reduktionAuf:float}
+        self.anzahlTagesdosen = anzahlTagesdosen
+        self.dosisTeilWichtung = dosisTeilWichtung
         self.einschleichen = einschleichen
-        self.medikament = medikament
-        self.maximaleTablettenzahlProEinheit = maximaleTablettenzahlProEinheit
-        self.verteiltAufZweiDosen = verteiltAufZweiDosen
-        self.prioritaetMorgens = prioritaetMorgens
+        self.dosierungsplan = [] # Liste von Tageseinnahmen
+
+    def getApplikationsliste(self):
+        return self.applikationsliste
     
-    def set_start(self, datumTTMMJJJJ:str, dosis:float, tage:int):
-        tag = int(datumTTMMJJJJ[0:2])
-        monat = int(datumTTMMJJJJ[2:4])
-        jahr = int(datumTTMMJJJJ[4:8])
-        self.startdatum = datetime.date(jahr, monat, tag)
-        self.startdosis = dosis
-        self.startdauer = tage
+    def addAenderungsanweisung(self, aenderungUm:float, aenderungFuer:int, aenderungAuf:float):
+        self.aenderungsanweisungen.append({"aenderungUm" : aenderungUm, "aenderungFuer" : aenderungFuer, "aenderungAuf" : aenderungAuf})
 
-    def set_aenderung(self, aenderungen:list):
-        self.aenderungen = aenderungen
-
-    def dosisIstHerstellbar(self, dosis:float):
-        """
-        Prüft, ob eine Tablettendosis mit den angegebenen Tablettendosierungen herstellbar ist
-        Return:
-            True oder False
-        """
-        herstellbar = False
-        for verfuegbareDosis in self.medikament.get_verfuegbareDosen():
-            herstellbar = (dosis % verfuegbareDosis == 0)
-            if herstellbar:
-                break
-        return herstellbar
-    
-    def get_dosisMasken(self, wert1:str, wert2:str, anzahlDosen:int):
-        """
-        Gibt eine Bitmaske zurück, die für die Berechnung der Tablettendosis benötigt wird
-        """
-        maxWert = pow(2, anzahlDosen)            
-        masken = []
-        for i in range (maxWert):
-            formatString = "{zahl:0" + str(anzahlDosen) + "b}"
-            maske = formatString.format(zahl=i).replace("1", wert2)
-            maske = maske.replace("0", wert1)
-            masken.append(maske)
-        return masken
-    
-    def get_tablettendosis(self, tagesdosis:float):
-        """
-        Gibt ein Dictionary mit jeweils key: Tablettendosierung / value: Tablettenanzahl für eine Tagesdosis zurück
-        Return:
-            Z. B. {"20" : 2, "5" : 2.5, "2" : 0}
-        """
-        maskenwerte = [(1,2), (1,4), (2,4)]
-        tablettenverteilung = {}
-        dosisGefunden = False
-        for maskenwert in maskenwerte:
-            dosismasken = self.get_dosisMasken(str(maskenwert[0]), str(maskenwert[1]), len(self.medikament.dosenProEinheit))
-            for maske in dosismasken:
-                dosenProEinheitMaskiert = []
-                i = 0
-                for maskenstelle in maske:
-                    if maskenstelle == "1":
-                        dosenProEinheitMaskiert.append(self.medikament.dosenProEinheit[i])
-                    elif maskenstelle == "2" and (self.medikament.teilbarkeiten[i] == class_medikament.Teilbarkeit.HALBIERBAR or self.medikament.teilbarkeiten[i] == class_medikament.Teilbarkeit.VIERTELBAR):
-                        dosenProEinheitMaskiert.append(self.medikament.dosenProEinheit[i] / 2)
-                    elif maskenstelle == "4" and self.medikament.teilbarkeiten[i] == class_medikament.Teilbarkeit.VIERTELBAR:
-                        dosenProEinheitMaskiert.append(self.medikament.dosenProEinheit[i] / 4)
-                    i += 1
-                if len(dosenProEinheitMaskiert) == len(self.medikament.dosenProEinheit):
-                    tablettenverteilung.clear()
-                    tempdosis = tagesdosis
-                    i = 0
-                    for dosisProEinheitMaskiert in dosenProEinheitMaskiert:
-                        tablettenverteilung[str(self.medikament.dosenProEinheit[i])] = 0
-                        if tempdosis / dosisProEinheitMaskiert >= 1 and tempdosis / self.medikament.dosenProEinheit[i] <= self.maximaleTablettenzahlProEinheit:
-                            tablettenverteilung[str(self.medikament.dosenProEinheit[i])] += int(tempdosis / dosisProEinheitMaskiert) / (self.medikament.dosenProEinheit[i] / dosisProEinheitMaskiert)
-                            tempdosis = tempdosis % dosisProEinheitMaskiert
-                        i += 1
-                    if tempdosis == 0:
-                        dosisGefunden = True
-                        break
-                if dosisGefunden:
-                    break
-            if dosisGefunden:
-                break        
-        if not dosisGefunden:
-            raise DosierungsfehlerException("Die Dosis " + str(tagesdosis).replace(".",",") + " " + self.medikament.einheit.value + " ist aufgrund der maximal zugelassenen " + self.medikament.darreichungsform.value + "-Anzahl (" + str(self.maximaleTablettenzahlProEinheit ) + ") nicht herstellbar.", -1)
-        return tablettenverteilung
-
-    # def get_DosisZweimalTaeglich(self, dosis:float, prioritaetMorgens:bool):
-    #     morgensAbends = (0, 0)
-    #     halbeDosis = dosis / 2
-    #     if self.dosisIstHerstellbar(halbeDosis):
-    #         morgensAbends = (halbeDosis, halbeDosis)
-    #     else:
-    #         tempDosis = halbeDosis
-    #         restDosis = halbeDosis
-    #         while (not self.dosisIstHerstellbar(tempDosis) or not self.dosisIstHerstellbar(restDosis)) and tempDosis >=0 and restDosis >=0:
-    #             if prioritaetMorgens:
-    #                 tempDosis += 0.01
-    #             else:
-    #                 tempDosis -= 0.01
-    #             restDosis = dosis - tempDosis
-    #         if tempDosis < 0 or restDosis < 0:
-    #             morgensAbends = (-1, -1)
-    #         morgensAbends = (tempDosis, restDosis)
-    #         return morgensAbends
-
-    def get_dosierungsplan(self):
-        """
-        Gibt einen Dosierungsplan als Dictionary mit den keys vonDatum, bisDatum, dosis und tabletten zurück, wobei tabletten wiederum ein von self.get_tablettendosis zurückgegebenes Dictionary ist
-        """
-        zeilen = []
-        tempDosis = self.startdosis
-        tempDauer = self. startdauer
-        tempStartDatum = self.startdatum
-        tempEndDatum = tempStartDatum + datetime.timedelta(days=tempDauer - 1)
-        # Erste Zeile des Plans
-        if self.dosisIstHerstellbar(tempDosis):
-            tablettenverteilung = self.get_tablettendosis(tempDosis)
-            zeilen.append({"vonDatum" : tempStartDatum.strftime("%d.%m.%Y"), "bisDatum" : tempEndDatum.strftime("%d.%m.%Y"), "dosis" : str(tempDosis).replace(".",",") + " " + str(self.medikament.einheit.value), "tabletten" : tablettenverteilung})
-        else:
-            logger.logger.info("Die Startdosis " + str(tempDosis).replace(".",",") + " ist nicht herstellbar.")
-            raise DosierungsfehlerException("Die Startdosis " + str(tempDosis).replace(".",",") + " ist nicht herstellbar.", 0)
-        
-        i = 1
-        # Weitere Zeilen des Plans
-        for aenderung in self.aenderungen:
-            if self.dosisIstHerstellbar(tempDosis + aenderung.aenderungsdosis):
-                tempDauer = aenderung.tage
-                tempZieldosis = aenderung.zieldosis
-                #while tempDosis != tempZieldosis:
-                while (aenderung.aenderungsdosis < 0 and tempDosis > tempZieldosis) or (aenderung.aenderungsdosis > 0 and tempDosis < tempZieldosis):
-                    tempDosis = tempDosis + aenderung.aenderungsdosis
-                    tempStartDatum = tempEndDatum + datetime.timedelta(days=1)
-                    tempEndDatum = tempStartDatum + datetime.timedelta(days=tempDauer - 1)
-                    tablettenverteilung = self.get_tablettendosis(tempDosis)
-                    zeilen.append({"vonDatum" : tempStartDatum.strftime("%d.%m.%Y"), "bisDatum" : tempEndDatum.strftime("%d.%m.%Y"), "dosis" : str(tempDosis).replace(".",",") + " " + str(self.medikament.einheit.value), "tabletten" : tablettenverteilung})
+    def berechnePlan(self):
+        self.dosierungsplan.clear()
+        aktuellVon = self.startDatum
+        aktuellBis = self.startDatum + datetime.timedelta(days=self.startZeitraum - 1)
+        aktuelleDosis = self.startDosis
+        bisherigeTagesdosen = [{"0" : 0} for i in range(self.anzahlTagesdosen.value)]
+        tempEinnahmeVorschrift = Dosierungsplan.getNeueEinnahmevorschrift(self.applikationsliste, bisherigeTagesdosen, aktuelleDosis, True, self.dosisTeilWichtung)
+        self.dosierungsplan.append(class_tageseinnahme.Dosisierungsplanzeile(aktuellVon, aktuellBis, tempEinnahmeVorschrift))
+        for aenderungsanweisung in self.aenderungsanweisungen:
+            if self.einschleichen:
+                while aktuelleDosis < aenderungsanweisung["aenderungAuf"]:
+                    aktuellVon = aktuellBis + datetime.timedelta(days=1)
+                    aktuellBis = aktuellVon + datetime.timedelta(days=aenderungsanweisung["aenderungFuer"] - 1)
+                    aktuelleDosis += aenderungsanweisung["aenderungUm"]
+                    tempEinnahmeVorschrift = Dosierungsplan.getNeueEinnahmevorschrift(self.applikationsliste, tempEinnahmeVorschrift, aenderungsanweisung["aenderungUm"], self.einschleichen, self.dosisTeilWichtung)
+                    self.dosierungsplan.append(class_tageseinnahme.Dosisierungsplanzeile(aktuellVon, aktuellBis, tempEinnahmeVorschrift))
             else:
-                logger.logger.info("Dosierungsfehler: Die Dosis " + str(tempDosis + aenderung.aenderungsdosis).replace(".",",") + " " + self.medikament.einheit.value + " ist nicht herstellbar (Änderungsanweisung Nr. " + str(i) +").")
-                raise DosierungsfehlerException("Die Dosis " + str(tempDosis + aenderung.aenderungsdosis).replace(".",",") + " " + self.medikament.einheit.value + " ist nicht herstellbar (Änderungsanweisung Nr. " + str(i) +").", i)
-            i += 1
-        return zeilen
+                while aktuelleDosis > aenderungsanweisung["aenderungAuf"]:
+                    aktuellVon = aktuellBis + datetime.timedelta(days=1)
+                    aktuellBis = aktuellVon + datetime.timedelta(days=aenderungsanweisung["aenderungFuer"] - 1)
+                    aktuelleDosis -= aenderungsanweisung["aenderungUm"]
+                    tempEinnahmeVorschrift = Dosierungsplan.getNeueEinnahmevorschrift(self.applikationsliste, tempEinnahmeVorschrift, aenderungsanweisung["aenderungUm"], self.einschleichen, self.dosisTeilWichtung)
+                    self.dosierungsplan.append(class_tageseinnahme.Dosisierungsplanzeile(aktuellVon, aktuellBis, tempEinnahmeVorschrift))
+
+    def getDosierungsplan(self):
+        return self.dosierungsplan
     
-    @staticmethod
-    def getTablettenGesamtmengen(dosierungsplanzeilen, medikament, berechnungAusVergangenheit:bool):
+    def getApplikationsgesamtmengen(self):
         """
-        Gibt den Medikamentenverbrauch eines Dosierungsplans zurück
-        Parameter:
-            Ergebnis von get_dosierungsplan
-            berechnungAusVergangenheit:bool Wenn True, Berechung gegbenenfalls aus der Vergangenheit, wenn False, ab heute
+        Gibt die Applikationsgesamtmengen  zurück
         Return:
-            Dictionary mit jeweils key: Medikamentendosis / value: Anzahl Tabletten/Tropfen
+            Dict mit key: dosis (str) und value menge (float)
         """
-        tablettenGesamtmengen = {}
-        heute = datetime.date.today()
-        for dosisProEinheit in medikament.dosenProEinheit:
-            tablettenGesamtmengen[str(dosisProEinheit)] = 0
-        for zeile in dosierungsplanzeilen:
-            vonJahr = int(zeile["vonDatum"][6:10])
-            vonMonat = int(zeile["vonDatum"][3:5])
-            vonTag = int(zeile["vonDatum"][0:2])
-            bisJahr = int(zeile["bisDatum"][6:10])
-            bisMonat = int(zeile["bisDatum"][3:5])
-            bisTag = int(zeile["bisDatum"][0:2])
-            vonDatum = datetime.date(vonJahr, vonMonat, vonTag)
-            bisDatum = datetime.date(bisJahr, bisMonat, bisTag)
-            delta = bisDatum - vonDatum
-            anzahlTage = delta.days + 1
-            if not berechnungAusVergangenheit:
-                if bisDatum < heute:
-                    anzahlTage = 0
-                elif vonDatum < heute:
-                    anzahlTage -= (heute - bisDatum).days
-            for tablette in zeile["tabletten"]:
-                tablettenGesamtmengen[tablette] += zeile["tabletten"][tablette] * anzahlTage
-        return tablettenGesamtmengen
+        applikationen = {}
+        for zeile in self.dosierungsplan:
+            dosierungsplanzeile = zeile.getDosierungsplanzeile()
+            evMorgens = dosierungsplanzeile["einnahmevorschriftenMorgens"]
+            evAbends = dosierungsplanzeile["einnahmevorschriftenAbends"]
+            tage = 0
+            for evm in evMorgens:
+                if " x " in evm:
+                    tage = (zeile.getBis() - zeile.getVon()).days + 1
+                    menge = evm.split(" x ")[0].replace(",", ".")
+                    dosis = evm.split(" x ")[1].replace(",", ".")
+                    if not dosis in applikationen:
+                        applikationen[dosis] = float(menge) * tage
+                    else:
+                        applikationen[dosis] += float(menge) * tage
+            for evm in evAbends:
+                if " x " in evm:
+                    menge = evm.split(" x ")[0].replace(",", ".")
+                    dosis = evm.split(" x ")[1].replace(",", ".")
+                    if not dosis in applikationen:
+                        applikationen[dosis] = float(menge) * tage
+                    else:
+                        applikationen[dosis] += float(menge) * tage
+        return applikationen
 
-class Aenderung():
-    def __init__(self, aenderungsdosis:float, tage:int, zieldosis:float):
-        self.aenderungsdosis = aenderungsdosis
-        self.tage = tage
-        self.zieldosis = zieldosis
 
-if __name__ == "__main__":
-    print("1")
-    medikamentenname = "Prednisolon"
-    einheit = class_medikament.Einheit.MG
-    darreichungsform = class_medikament.Darreichungsform.TABLETTE
-    dosenProEinheit = [20,5,2]
-    teilbarkeiten = [class_medikament.Teilbarkeit.VIERTELBAR, class_medikament.Teilbarkeit.HALBIERBAR, class_medikament.Teilbarkeit.HALBIERBAR]
-    einschleichen = False
-    dosenProTag = 2
-    startDatum = "15112023"
-    startDosis = 25
-    startDosisDauer = 7
 
-    medikament = class_medikament.Medikament(medikamentenname, einheit, darreichungsform, dosenProEinheit, teilbarkeiten)
-    dosierungsplan = Dosierungsplan(einschleichen, medikament, dosenProTag, False, True)
-    dosierungsplan.set_start(startDatum, startDosis, startDosisDauer)
-    aenderung = []
-    aenderung.append(Aenderung(-2.5, 7, 10))
-    aenderung.append(Aenderung(-1, 28, 0))
-    dosierungsplan.set_aenderung(aenderung)
+    @staticmethod
+    def getNeueEinnahmevorschrift(zurVerfuegungStehendeApplikationen:list, bisherigeTagesdosen:list, aenderungUm:float, einschleichen:bool, dosisTeilwichtung:class_enums.DosisteilWichtung):
+        """
+        Gibt eine neue Einnahmevorschrift zurück
+        Parameter: 
+            zurVerfuegungStehendeApplikationen:list von class_applikation:Applikation
+            bisherigeTagesdosen:dict von Tagesdosen mit key:Applikationsmenge, value: Anzahl
+            aenderungUm:float
+            einschleichen:bool
+            dosisTeilwichtung:class_enums.DosisteilWichtung
+        Return:
+            list aus dicts mit key: Applikationsmenge, value: Anzahl
+        Exception:
+            DosierungsplanFehler
+        """
+        einschleichfaktor = 1
+        if not einschleichen:
+            einschleichfaktor = -1
+        neueEinnahmevorschrift = []
+        anzahlTagesdosen = len(bisherigeTagesdosen)
+        if anzahlTagesdosen == 1:
+            dosisTag = 0
+            tagDosen = bisherigeTagesdosen[0]
+            for tagDosis in tagDosen:
+                menge = tagDosen[tagDosis]
+                dosisTag += float(tagDosis) * menge
+            dosisTag += aenderungUm * einschleichfaktor
+            try:
+                neueEinnahmevorschrift.append(class_tablette.getOptimaleMengen(dosisTag, zurVerfuegungStehendeApplikationen, False))
+            except class_tablette.OptimaleMengenFehler as e:
+                logger.logger.warning("Fehler #1 bei der Berechnung der Dosis " + str(dosisTag) + ": " + e.message)
+                raise DosierungsplanFehler("Die Dosis " + str(dosisTag) + " kann aus den zur Verfügung stehenden Darreichungsformen nicht hergestellt werden.")
+        elif anzahlTagesdosen == 2:
+            # Gesamtdosen morgens und abends berechnen
+            mitVielfachenEinerMenge = False
+            dosisMorgens, dosisAbends = 0, 0
+            morgensDosen, abendsDosen = bisherigeTagesdosen[0], bisherigeTagesdosen[1]
+            for morgensDosis in morgensDosen:
+                menge = morgensDosen[morgensDosis]
+                dosisMorgens += float(morgensDosis) * menge
+            for abendsDosis in abendsDosen:
+                menge = abendsDosen[abendsDosis]
+                dosisAbends += float(abendsDosis) * menge
+            neueGesamtdosis = dosisMorgens + dosisAbends + aenderungUm * einschleichfaktor
+            try:
+                class_tablette.getOptimaleMengen(neueGesamtdosis / 2, zurVerfuegungStehendeApplikationen, False)
+                dosisMorgens = neueGesamtdosis / 2
+                dosisAbends = neueGesamtdosis / 2
+            except class_tablette.OptimaleMengenFehler as e:
+                logger.logger.warning("OptimaleMengenFehler Zweimalgabe 1: " + e.message)
+                dosisGefunden = False
+                for i in range(2):
+                    mitVielfachenEinerMenge = i == 1
+                    if mitVielfachenEinerMenge:
+                        logger.logger.info("Mengenberechnung mit Vielfachen einer Menge, neue Tagesdosis: " + str(neueGesamtdosis))
+                    moeglicheMengenSortiert = sorted(list(class_tablette.getMoeglicheMengenAusTablettenliste(zurVerfuegungStehendeApplikationen, mitVielfachenEinerMenge)), key=lambda m: float(m), reverse=True)
+                    naechstKleinereMenge = []
+                    try:
+                        naechstKleinereMenge = class_tablette.getNaechstKleinereMengen(moeglicheMengenSortiert, neueGesamtdosis / 2)
+                    except class_tablette.NaechstKleinereMengenFehler:
+                        naechstKleinereMenge = ["0"] # Keine nächst kleinere Menge vorhanden
+                    for menge in naechstKleinereMenge:
+                        mengeFloat = float(menge)
+                        if mengeFloat <= neueGesamtdosis / 2:
+                            try:
+                                uebrigeMenge = neueGesamtdosis - mengeFloat
+                                class_tablette.getOptimaleMengen(uebrigeMenge, zurVerfuegungStehendeApplikationen, mitVielfachenEinerMenge)
+                                if dosisTeilwichtung == class_enums.DosisteilWichtung.PRIOMORGENS:
+                                    dosisMorgens = neueGesamtdosis - mengeFloat
+                                    dosisAbends = mengeFloat
+                                elif dosisTeilwichtung == class_enums.DosisteilWichtung.PRIOABENDS:
+                                    dosisMorgens = mengeFloat
+                                    dosisAbends = neueGesamtdosis - mengeFloat
+                                # Prüfen, ob Dosisunterschied zwischen morgens und abends kleiner als die Hälfte der neuen Tagesdosis
+                                if abs(dosisMorgens - dosisAbends) < neueGesamtdosis / 2:
+                                    dosisGefunden = True
+                                    break
+                            except class_tablette.OptimaleMengenFehler as e:
+                                logger.logger.warning("OptimaleMengenFehler Zweimalgabe 2: " + e.message)
+                    if dosisGefunden:
+                        break
+            try:
+                neueEinnahmevorschrift.append(class_tablette.getOptimaleMengen(dosisMorgens, zurVerfuegungStehendeApplikationen, mitVielfachenEinerMenge))
+                neueEinnahmevorschrift.append(class_tablette.getOptimaleMengen(dosisAbends, zurVerfuegungStehendeApplikationen, mitVielfachenEinerMenge))
+            except class_tablette.OptimaleMengenFehler as e:
+                logger.logger.warning("Fehler #2 bei der Berechnung der Dosis " + str(neueGesamtdosis) + ": " + e.message)
+                raise DosierungsplanFehler("Die Dosis " + str(neueGesamtdosis) + " kann aus den zur Verfügung stehenden Darreichungsformen nicht hergestellt werden.")
+        else:
+            raise DosierungsplanFehler("Ungültige Anzahl von Tagesdosen: " + str(anzahlTagesdosen))
+        return neueEinnahmevorschrift
 
-    for zeile in dosierungsplan.get_dosierungsplan():
-        print(zeile)
-    print(Dosierungsplan.getTablettenGesamtmengen(dosierungsplan.get_dosierungsplan(), medikament, False))
