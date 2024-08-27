@@ -172,6 +172,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.dosierungsplanfehlerGemeldet = False
 
         # config.ini lesen
         ersterStart = False
@@ -1067,11 +1068,14 @@ class MainWindow(QMainWindow):
         try:
             dosierungsplan.berechnePlan()
         except class_dosierungsplan.DosierungsplanFehler as e:
-            mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Dosierungsplanfehler: " + e.message, QMessageBox.StandardButton.Ok)
-            mb.exec()
+            if not self.dosierungsplanfehlerGemeldet:
+                mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Dosierungsplanfehler: " + e.message, QMessageBox.StandardButton.Ok)
+                mb.exec()
+                self.dosierungsplanfehlerGemeldet = True
         return {"plan" : dosierungsplan, "applikationsart" : applikationsart, "einheit" : einheit}
     
     def pushButtonVorschauClicked(self):
+        self.dosierungsplanfehlerGemeldet = False
         self.textEditVorschau.clear()
         fehler = self.formularPruefen()
         if len(fehler) != 0:
@@ -1137,9 +1141,10 @@ class MainWindow(QMainWindow):
                 else:
                     text+= "<tr><td colspan='2' style='font-weight:normal;color:rgb(200,0,0)'>Für diese Funktion ist eine gültige LANR/Lizenzschlüsselkombination erforderlich.</td></tr>"
                 text += "</table>"
-                self.textEditVorschau.clear()
-                self.textEditVorschau.setHtml(text)
-                self.pushButtonSenden.setEnabled(True)
+                if not self.dosierungsplanfehlerGemeldet:
+                    self.textEditVorschau.clear()
+                    self.textEditVorschau.setHtml(text)
+                    self.pushButtonSenden.setEnabled(True)
 
     @staticmethod
     def getEinnahmevorschriftHtmlFormatiert(einnahmevorschriften:list, einheit:str):
