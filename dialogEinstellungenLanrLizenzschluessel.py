@@ -8,8 +8,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QGroupBox,
     QLineEdit,
-    QMessageBox,
-    QLabel
+    QMessageBox
 )
 
 reLanr = "^\\d{9}$"
