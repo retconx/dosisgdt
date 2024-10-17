@@ -692,44 +692,44 @@ class MainWindow(QMainWindow):
             anwendungMenu = menubar.addMenu("")
             aboutAction = QAction(self)
             aboutAction.setMenuRole(QAction.MenuRole.AboutRole)
-            aboutAction.triggered.connect(self.ueberDosisGdt) # type: ignore
+            aboutAction.triggered.connect(self.ueberDosisGdt) 
             aboutAction.setShortcut(QKeySequence("Ctrl+Ü"))
             updateAction = QAction("Auf Update prüfen", self)
             updateAction.setMenuRole(QAction.MenuRole.ApplicationSpecificRole)
-            updateAction.triggered.connect(self.updatePruefung) # type: ignore
+            updateAction.triggered.connect(self.updatePruefung) 
             updateAction.setShortcut(QKeySequence("Ctrl+U"))
             vorlagenMenu = menubar.addMenu("Vorlagen")
             i = 0
             vorlagenMenuAction = []
             for vorlage in self.vorlagen:
                 vorlagenMenuAction.append(QAction(vorlage, self))
-                vorlagenMenuAction[i].triggered.connect(lambda checked=False, name=vorlage: self.vorlagenMenu(checked, name)) # type: ignore
+                vorlagenMenuAction[i].triggered.connect(lambda checked=False, name=vorlage: self.vorlagenMenu(checked, name))
                 i += 1
             vorlagenMenuVorlagenVerwaltenAction = QAction("Vorlagen verwalten...", self)
             vorlagenMenuVorlagenVerwaltenAction.setShortcut(QKeySequence("Ctrl+T"))
-            vorlagenMenuVorlagenVerwaltenAction.triggered.connect(self.vorlagenMenuVorlagenVerwalten) # type: ignore
+            vorlagenMenuVorlagenVerwaltenAction.triggered.connect(self.vorlagenMenuVorlagenVerwalten)
             einstellungenMenu = menubar.addMenu("Einstellungen")
             einstellungenAllgemeinAction = QAction("Allgemeine Einstellungen", self)
-            einstellungenAllgemeinAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenAllgemein(checked, neustartfrage)) # type: ignore
+            einstellungenAllgemeinAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenAllgemein(checked, neustartfrage))
             einstellungenAllgemeinAction.setShortcut(QKeySequence("Ctrl+E"))
             einstellungenGdtAction = QAction("GDT-Einstellungen", self)
-            einstellungenGdtAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenGdt(checked, neustartfrage)) # type: ignore
+            einstellungenGdtAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenGdt(checked, neustartfrage)) 
             einstellungenGdtAction.setShortcut(QKeySequence("Ctrl+G"))
             ## Nur mit Lizenz
             einstellungenErweiterungenAction = QAction("LANR/Lizenzschlüssel", self)
-            einstellungenErweiterungenAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenLanrLizenzschluessel(checked, neustartfrage)) # type: ignore
+            einstellungenErweiterungenAction.triggered.connect(lambda checked = False, neustartfrage = True: self.einstellungenLanrLizenzschluessel(checked, neustartfrage))
             einstellungenErweiterungenAction.setShortcut(QKeySequence("Ctrl+L"))
             einstellungenImportExportAction = QAction("Im- /Exportieren", self)
-            einstellungenImportExportAction.triggered.connect(self.einstellungenImportExport) # type: ignore
+            einstellungenImportExportAction.triggered.connect(self.einstellungenImportExport)
             einstellungenImportExportAction.setShortcut(QKeySequence("Ctrl+I"))
             einstellungenImportExportAction.setMenuRole(QAction.MenuRole.NoRole)
             ## /Nur mit Lizenz
             hilfeMenu = menubar.addMenu("Hilfe")
             hilfeWikiAction = QAction("DosisGDT Wiki", self)
-            hilfeWikiAction.triggered.connect(self.dosisgdtWiki) # type: ignore
+            hilfeWikiAction.triggered.connect(self.dosisgdtWiki)
             hilfeWikiAction.setShortcut(QKeySequence("Ctrl+W"))
             hilfeUpdateAction = QAction("Auf Update prüfen", self)
-            hilfeUpdateAction.triggered.connect(self.updatePruefung) # type: ignore
+            hilfeUpdateAction.triggered.connect(self.updatePruefung)
             hilfeUpdateAction.setShortcut(QKeySequence("Ctrl+U"))
             hilfeAutoUpdateAction = QAction("Automatisch auf Update prüfen", self)
             hilfeAutoUpdateAction.setCheckable(True)
@@ -737,12 +737,12 @@ class MainWindow(QMainWindow):
             hilfeAutoUpdateAction.triggered.connect(self.autoUpdatePruefung)
             hilfeUeberAction = QAction("Über DosisGDT", self)
             hilfeUeberAction.setMenuRole(QAction.MenuRole.NoRole)
-            hilfeUeberAction.triggered.connect(self.ueberDosisGdt) # type: ignore
+            hilfeUeberAction.triggered.connect(self.ueberDosisGdt)
             hilfeUeberAction.setShortcut(QKeySequence("Ctrl+Ü"))
             hilfeEulaAction = QAction("Lizenzvereinbarung (EULA)", self)
             hilfeEulaAction.triggered.connect(self.eula) 
             hilfeLogExportieren = QAction("Log-Verzeichnis exportieren", self)
-            hilfeLogExportieren.triggered.connect(self.logExportieren) # type: ignore
+            hilfeLogExportieren.triggered.connect(self.logExportieren)
             hilfeLogExportieren.setShortcut(QKeySequence("Ctrl+D"))
             
             anwendungMenu.addAction(aboutAction)
@@ -1059,7 +1059,7 @@ class MainWindow(QMainWindow):
         if self.radioButtonPrioritaetAbends.isChecked():
             prioritaet = 1
         dosierungsplan = class_dosierungsplan.Dosierungsplan(applikationen, startDosis, startDatum, startZeitraum, anzahlTagesDosen, class_enums.DosisteilWichtung(prioritaet), self.radioButtonEinschleichen.isChecked())
-        for i in range(self.maxDosenProEinheit):
+        for i in range(self.maxDosierungsplanAnweisungen):
             if self.lineEditReduktionUm[i].isEnabled() and self.lineEditReduktionUm[i].text() != "":
                 aenderungUm = float(self.lineEditReduktionUm[i].text().replace(",", "."))
                 aenderungFuer = int(self.lineEditTage[i].text())
