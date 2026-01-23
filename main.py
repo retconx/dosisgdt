@@ -1409,6 +1409,10 @@ class MainWindow(QMainWindow):
                         gd.addZeile("6228",  str(tablettenGesamtmengen[tablette]).replace(".",",") + " Tropfen (" + str(tablettenGesamtmengen[tablette] * float(tablette)).replace(".",",") + " " + einheit.value + ")")
                     elif applikationsart == class_enums.Applikationsart.SPRITZE:
                         gd.addZeile("6228", str(tablette).replace(".", ",") + " " + einheit.value + "-Spritzen: " + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück")
+            # Freitext
+            if self.textEditFreitext.toPlainText() != "":
+                gd.addZeile("6330", freitextUeberschrift)
+                gd.addZeile("6331", hinweistext)
             # GDT-Datei exportieren
             if not gd.speichern(self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt", self.zeichensatz):
                 logger.logger.error("Fehler bei GDT-Dateiexport nach " + self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt")
