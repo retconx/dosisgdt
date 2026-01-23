@@ -3,6 +3,7 @@ from enum import Enum
 class Applikationsart(Enum):
     TROPFEN = "Tropfen"
     TABLETTE = "Tablette"
+    SPRITZE = "Spritze"
 
 class Einheit(Enum):
     MIK = "µg"

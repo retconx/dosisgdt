@@ -120,11 +120,11 @@ class MainWindow(QMainWindow):
             tage = []
             bis = []
             for aenderungElement in aenderungenElement.findall("aenderung"): # type: ignore
-                if aenderungElement.findtext("reduktionUm") != None:
+                if aenderungElement.find("reduktionUm") != None:
                     aenderungUm.append(str(aenderungElement.findtext("reduktionUm")).replace(".", ","))
                     tage.append(str(aenderungElement.findtext("tage")))
                     bis.append(str(aenderungElement.findtext("bis")).replace(".", ","))
-                elif aenderungElement.findtext("aenderungUm") != None: # ab 1.3.0
+                elif aenderungElement.find("aenderungUm") != None: # ab 1.3.0
                     aenderungUm.append(str(aenderungElement.findtext("aenderungUm")).replace(".", ","))
                     tage.append(str(aenderungElement.findtext("tage")))
                     bis.append(str(aenderungElement.findtext("bis")).replace(".", ","))
@@ -132,22 +132,30 @@ class MainWindow(QMainWindow):
                     aenderungUm.append("")
                     tage.append("")
                     bis.append("")
-
             # Ab 1.3.0
             einschleichen = False
             einschleichenElement = dosierungsplanElement.find("einschleichen")
             if einschleichenElement != None:
                 einschleichen = str(einschleichenElement.text) == "True" # type: ignore
             zweimalTaeglicheeinnahme = False
-            if dosierungsplanElement.findtext("zweimaltaeglicheeinnahme") != None:
+            if dosierungsplanElement.find("zweimaltaeglicheeinnahme") != None:
                 zweimalTaeglicheeinnahme = str(dosierungsplanElement.findtext("zweimaltaeglicheeinnahme")) == "True"
             prioritaet = 0
-            if dosierungsplanElement.findtext("prioritaet") != None:
+            if dosierungsplanElement.find("prioritaet") != None:
                 prioritaet = int(str(dosierungsplanElement.findtext("prioritaet")))
+            # Ab 1.4.0
+            woechentlicheEinnahme = False
+            if dosierungsplanElement.find("woechentlicheeinnahme") != None:
+                woechentlicheEinnahme = str(dosierungsplanElement.findtext("woechentlicheeinnahme")) == "True"
+            freitext = ""
+            if dosierungsplanElement.find("freitext") != None:
+                freitext = str(dosierungsplanElement.findtext("freitext"))
 
             self.lineEditMediName.setText(medikamentenname)
             self.comboBoxMediEinheit.setCurrentText(einheit.value)
             self.comboBoxMediDarreichungsform.setCurrentText(darreichungsform.value)
+            for i in range(self.maxDosenProEinheit):
+                self.lineEditDosisProEinheit[i].setText("")
             for i in range(len(dosenProEinheit)):
                 self.lineEditDosisProEinheit[i].setText(dosenProEinheit[i])
             for i in range(len(teilbarkeiten)):
@@ -163,6 +171,8 @@ class MainWindow(QMainWindow):
             self.checkBoxZweimalTaeglicheEinnahme.setChecked(zweimalTaeglicheeinnahme)
             self.radioButtonPrioritaetMorgens.setChecked(prioritaet == 0)
             self.radioButtonPrioritaetAbends.setChecked(prioritaet == 1)
+            self.checkBoxWoechentlicheEinnahme.setChecked(woechentlicheEinnahme)
+            self.textEditFreitext.setText(freitext)
             self.setStatusMessage("Vorlage " + os.path.basename(xmlDateipdad) + " geladen")
             logger.logger.info("Eingabeformular vor-ausgefüllt")
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -410,7 +420,7 @@ class MainWindow(QMainWindow):
             mainLayoutLinkeSpalte = QVBoxLayout()
             mainLayoutRechteSpalte = QVBoxLayout()
             self.lineEditBreiteKlein = 50
-            self.maxDosenProEinheit = 4
+            self.maxDosenProEinheit = 5
             self.maxDosierungsplanAnweisungen = 5
             self.styleSheetHellrot = "background:rgb(255,200,200)"
             self.styleSheetWeiss = "background:rgb(255,255,255)"
@@ -440,7 +450,7 @@ class MainWindow(QMainWindow):
             self.comboBoxMediEinheit.currentIndexChanged.connect(self.pushButtonPlanSendenDisable) 
             self.comboBoxMediDarreichungsform = QComboBox()
             self.comboBoxMediDarreichungsform.setFont(self.fontNormal)
-            self.comboBoxMediDarreichungsform.addItems(["Tablette", "Tropfen"])
+            self.comboBoxMediDarreichungsform.addItems(["Tablette", "Tropfen", "Spritze"])
             self.comboBoxMediDarreichungsform.currentIndexChanged.connect(self.comboBoxMediDarreichungsformIndexChanged)
             self.comboBoxMediDarreichungsform.currentIndexChanged.connect(self.pushButtonPlanSendenDisable) 
             labelDosierungTeilbarkeit = QLabel("Dosierungen und Teilbarkeit")
@@ -554,7 +564,7 @@ class MainWindow(QMainWindow):
                 self.labelEinheit2[i].setFont(self.fontNormal)
             self.checkBoxZweimalTaeglicheEinnahme = QCheckBox("Zweimal tägliche Einnahme")
             self.checkBoxZweimalTaeglicheEinnahme.setFont(self.fontNormal)
-            self.checkBoxZweimalTaeglicheEinnahme.clicked.connect(self.pushButtonPlanSendenDisable) 
+            self.checkBoxZweimalTaeglicheEinnahme.clicked.connect(self.pushButtonPlanSendenDisable)
             self.radioButtonPrioritaetMorgens = QRadioButton("Priorität morgens")
             self.radioButtonPrioritaetMorgens.setFont(self.fontNormal)
             self.radioButtonPrioritaetMorgens.setChecked(True)
@@ -562,6 +572,19 @@ class MainWindow(QMainWindow):
             self.radioButtonPrioritaetAbends = QRadioButton("Priorität abends")
             self.radioButtonPrioritaetAbends.setFont(self.fontNormal)
             self.radioButtonPrioritaetAbends.clicked.connect(self.pushButtonPlanSendenDisable) 
+            self.checkBoxWoechentlicheEinnahme = QCheckBox("Wöchentliche Einnahme")
+            self.checkBoxWoechentlicheEinnahme.setFont(self.fontNormal)
+            self.checkBoxWoechentlicheEinnahme.clicked.connect(self.pushButtonPlanSendenDisable)
+            self.checkBoxWoechentlicheEinnahme.clicked.connect(self.checkBoxWoechentlicheEinnahmeClicked)
+            self.comboBoxWochentag = QComboBox()
+            self.comboBoxWochentag.setFont(self.fontNormal)
+            self.comboBoxWochentag.addItems(["jeden Montag", "jeden Dienstag", "jeden Mittwoch", "jeden Donnerstag", "jeden Freitag", "jeden Samstag", "jeden Sonntag"])
+            self.comboBoxWochentag.setEnabled(False)
+            self.textEditFreitext = QTextEdit()
+            self.textEditFreitext.setFont(self.fontNormal)
+            self.textEditFreitext.setFixedHeight(self.fontNormal.pointSize() * 2 + 16)
+            self.textEditFreitext.textChanged.connect(self.pushButtonPlanSendenDisable)
+            self.textEditFreitext.setPlaceholderText("Freitext für z. B. Einnahmehinweise [Überschrift (Standard: Hinweis)//Text]")
 
             self.dosierungsplanLayout.addWidget(self.radioButtonAusschleichen, 0, 0, 1, 4)
             self.dosierungsplanLayout.addWidget(self.radioButtonEinschleichen, 0, 4, 1, 3)
@@ -584,26 +607,29 @@ class MainWindow(QMainWindow):
                 self.dosierungsplanLayout.addWidget(self.labelEinheit2[i], i + 2, 8)
             self.dosierungsplanLayout.addWidget(self.checkBoxZweimalTaeglicheEinnahme, self.maxDosierungsplanAnweisungen + 2, 0, 1, 3)
             self.dosierungsplanLayout.addWidget(self.radioButtonPrioritaetMorgens, self.maxDosierungsplanAnweisungen + 2, 3, 1, 3)
-            self.dosierungsplanLayout.addWidget(self.radioButtonPrioritaetAbends, self.maxDosierungsplanAnweisungen + 2, 6
-                                                , 1, 3)
+            self.dosierungsplanLayout.addWidget(self.radioButtonPrioritaetAbends, self.maxDosierungsplanAnweisungen + 2, 6, 1, 3)
+            self.dosierungsplanLayout.addWidget(self.checkBoxWoechentlicheEinnahme, self.maxDosierungsplanAnweisungen + 3, 0, 1, 3)
+            self.dosierungsplanLayout.addWidget(self.comboBoxWochentag, self.maxDosierungsplanAnweisungen + 3, 3, 1, 3)
+            self.dosierungsplanLayout.addWidget(self.textEditFreitext, self.maxDosierungsplanAnweisungen + 4, 0, 1, 9)
             groupBoxDosierungsplan.setLayout(self.dosierungsplanLayout)
 
             # Buttons
             buttonLayout = QGridLayout()
             buttonLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.pushButtonVorschau = QPushButton("Vorschau")
-            self.pushButtonVorschau.setFixedSize(QSize(200, 40))
+            self.pushButtonVorschau.setFixedSize(QSize(160, 34))
             self.pushButtonVorschau.clicked.connect(self.pushButtonVorschauClicked) # type: ignore
             self.pushButtonSenden = QPushButton("Plan senden")
-            self.pushButtonSenden.setFixedSize(QSize(200, 40))
+            self.pushButtonSenden.setFixedSize(QSize(160, 34))
             self.pushButtonSenden.setEnabled(False)
+            self.pushButtonSenden.setFont(self.fontBold)
             self.pushButtonSenden.clicked.connect(self.pushButtonSendenClicked) # type: ignore
             self.pushButtonVorlageSpeichern = QPushButton("Als Vorlage speichern...")
-            self.pushButtonVorlageSpeichern.setFixedSize(200,40)
+            self.pushButtonVorlageSpeichern.setFixedSize(160,34)
             self.pushButtonVorlageSpeichern.clicked.connect(self.pushButtonVorlageSpeichernClicked) # type: ignore
             buttonLayout.addWidget(self.pushButtonVorschau, 0, 0)
             buttonLayout.addWidget(self.pushButtonSenden, 0, 1)
-            buttonLayout.addWidget(self.pushButtonVorlageSpeichern, 1, 0, 1, 2, Qt.AlignmentFlag.AlignCenter)
+            buttonLayout.addWidget(self.pushButtonVorlageSpeichern, 0, 2)
 
             # Groupbox PatientIn
             patientLayout = QGridLayout()
@@ -687,7 +713,7 @@ class MainWindow(QMainWindow):
             if self.defaultXml != "":
                 self.setPreFormularXml(os.path.join(basedir, self.vorlagenverzeichnis, self.defaultXml))
 
-            #Menü
+            # Menü
             menubar = self.menuBar()
             anwendungMenu = menubar.addMenu("")
             aboutAction = QAction(self)
@@ -787,7 +813,10 @@ class MainWindow(QMainWindow):
 
     def pushButtonPlanSendenDisable(self):
         self.pushButtonSenden.setEnabled(False)
-    
+
+    def checkBoxWoechentlicheEinnahmeClicked(self, checked):
+        self.comboBoxWochentag.setEnabled(checked)
+
     def comboBoxMediEinheitIndexChanged(self):
         for i in range(4):
             self.labelEinheitProDarreichungsform[i].setText(self.comboBoxMediEinheit.currentText() + "/" + self.comboBoxMediDarreichungsform.currentText())
@@ -797,23 +826,21 @@ class MainWindow(QMainWindow):
             self.labelEinheit2[i].setText(self.comboBoxMediEinheit.currentText())
 
     def comboBoxMediDarreichungsformIndexChanged(self, index):
-        self.labelEinheitProDarreichungsform[0].setText(self.comboBoxMediEinheit.currentText() + "/" + self.comboBoxMediDarreichungsform.currentText())
-        if index == 0:
-            self.comboBoxDosisTeilbarkeit[0].setEnabled(True)
-            for i in range(self.maxDosenProEinheit):
-                self.comboBoxDosisTeilbarkeit[i].setCurrentText("halbierbar")
-        else:
-            self.comboBoxDosisTeilbarkeit[0].setEnabled(False)
-            self.comboBoxDosisTeilbarkeit[0].setCurrentText("nicht teilbar")
-        self.lineEditDosisProEinheit[0].setText("")
-        for i in range(1, self.maxDosenProEinheit):
+        for i in range(0, self.maxDosenProEinheit):
             self.lineEditDosisProEinheit[i].setStyleSheet(self.styleSheetWeiss)
+            self.labelEinheitProDarreichungsform[i].setText(self.comboBoxMediEinheit.currentText() + "/" + self.comboBoxMediDarreichungsform.currentText())
             if index == 0:
                 self.lineEditDosisProEinheit[i].setEnabled(True)
                 self.comboBoxDosisTeilbarkeit[i].setEnabled(True)
-            else:
-                self.lineEditDosisProEinheit[i].setText("")
-                self.lineEditDosisProEinheit[i].setEnabled(False)
+                self.comboBoxDosisTeilbarkeit[i].setCurrentText("halbierbar")
+            elif index == 1: # Tropfen
+                self.comboBoxDosisTeilbarkeit[i].setEnabled(False)
+                if i > 0:
+                    self.lineEditDosisProEinheit[i].setText("")
+                    self.lineEditDosisProEinheit[i].setEnabled(False)
+            else: # Spritze
+                self.lineEditDosisProEinheit[i].setEnabled(True)
+                self.comboBoxDosisTeilbarkeit[i].setCurrentText("nicht teilbar")
                 self.comboBoxDosisTeilbarkeit[i].setEnabled(False)
 
     def buttonGroupEinAusschleichenClicked(self, id):
@@ -887,6 +914,9 @@ class MainWindow(QMainWindow):
         elif re.match(self.patternTage, text) == None:
             self.lineEditStartTage.setStyleSheet(self.styleSheetHellrot)
             self.setStatusMessage("Startdosis-Zeitraum unzulässig")
+        elif self.checkBoxWoechentlicheEinnahme.isChecked() and int(self.lineEditStartTage.text()) % 7 != 0:
+            self.lineEditStartTage.setStyleSheet(self.styleSheetHellrot)
+            self.setStatusMessage("Startdosis-Zeitraum unzulässig (muss bei wöchentlicher Einnahme eine durch 7 teilbare Zahl sein)")
         else:
             self.lineEditStartTage.setStyleSheet(self.styleSheetWeiss)
             self.setStatusMessage()
@@ -923,6 +953,7 @@ class MainWindow(QMainWindow):
                                 fehler.append("Zieländerungsdosis " + str(i + 1) + " zu groß")
                             if reduktionsdosis > vorherigeDosis:
                                 fehler.append("Änderungsdosis " + str(i + 1) + " zu groß")
+                            
                             if re.match(self.patternTage, self.lineEditTage[i].text()) == None or int(self.lineEditTage[i].text()) < 1:
                                 fehler.append("Änderungszeitraum " + str(i + 1) + " ungültig")
                         else:
@@ -952,6 +983,12 @@ class MainWindow(QMainWindow):
                     if len(fehler) > 0:
                         break
                     i += 1
+            if self.checkBoxWoechentlicheEinnahme.isChecked():
+                for i in range(self.maxDosierungsplanAnweisungen):
+                    if self.lineEditTage[i].text() != "" and int(self.lineEditTage[i].text()) % 7 != 0:
+                        fehler.append("Änderungszeitraum " + str(i + 1) + " ungültig (muss bei wöchentlicher Gabe durch 7 teilbar sein)")
+                    if len(fehler) > 0:
+                        break
         return fehler
     
     def pushButtonVorlageSpeichernClicked(self):
@@ -1013,6 +1050,10 @@ class MainWindow(QMainWindow):
             prioritaetElement.text = "0"
             if self.radioButtonPrioritaetAbends.isChecked():
                 prioritaetElement.text = "1"
+            woechentlicheEinnahmeElement = ElementTree.Element("woechentlicheeinnahme")
+            woechentlicheEinnahmeElement.text = str(self.checkBoxWoechentlicheEinnahme.isChecked())
+            freitextElement = ElementTree.Element("freitext")
+            freitextElement.text = str(self.textEditFreitext.toPlainText()).replace("\n", "\u003cbr /\u003e")
             dosierungsplanElement.append(medikamentElement)
             dosierungsplanElement.append(einschleichenElement)
             dosierungsplanElement.append(startdosisElement)
@@ -1020,6 +1061,8 @@ class MainWindow(QMainWindow):
             dosierungsplanElement.append(aenderungenElement)
             dosierungsplanElement.append(zweimalTaeglicheEinnahmeElement)
             dosierungsplanElement.append(prioritaetElement)
+            dosierungsplanElement.append(woechentlicheEinnahmeElement)
+            dosierungsplanElement.append(freitextElement)
             et = ElementTree.ElementTree(dosierungsplanElement)
             ElementTree.indent(et)
             try:
@@ -1038,6 +1081,8 @@ class MainWindow(QMainWindow):
         applikationsart = class_enums.Applikationsart.TABLETTE
         if self.comboBoxMediDarreichungsform.currentText() == "Tropfen":
             applikationsart = class_enums.Applikationsart.TROPFEN
+        elif self.comboBoxMediDarreichungsform.currentText() == "Spritze":
+            applikationsart = class_enums.Applikationsart.SPRITZE
         applikationen = []
         einheit = class_enums.Einheit(self.comboBoxMediEinheit.currentText())
         for i in range(self.maxDosenProEinheit):
@@ -1092,21 +1137,40 @@ class MainWindow(QMainWindow):
                 text = "<style>table.dosierungsplan { margin-top:6px;border-collapse:collapse } table.dosierungsplan td { padding:2px;border:1px solid rgb(0,0,0);font-weight:normal; } table.dosierungsplan td table {border-collapse:collapse;padding:0px } table.dosierungsplan td table td {border:none;padding:0px 2px 0px 2px; } </style>"
                 text += "<div style='font-weight:bold'>" + self.lineEditMediName.text().strip() + "-Dosierungsplan:</div>"
                 text += "<table class='dosierungsplan'>"
+                taeglichWoechentlich = "Tägliche "
+                wochentag = ""
+                verabreichungsart = "Einnahme"
+                if self.checkBoxWoechentlicheEinnahme.isChecked():
+                    taeglichWoechentlich = "Wöchentliche "
+                    wochentag = "<br />" + self.comboBoxWochentag.currentText()
+                if applikationsart == class_enums.Applikationsart.SPRITZE:
+                    verabreichungsart = "Gabe"
                 if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
-                    text += "<tr><td><b>Von</b></td><td><b>Bis</b></td><td><b>Dosis</b></td><td><b>Einnahmevorschlag<br />morgens</b></td><td><b>Einnahmevorschlag<br />abends</b></td></tr>"
+                    text += "<tr><td><b>Von</b></td><td><b>Bis</b></td><td><b>Dosis</b></td><td><b>" + taeglichWoechentlich + "<br />" + verabreichungsart + " morgens" + wochentag + "</b></td><td><b>" + taeglichWoechentlich + "<br />" + verabreichungsart + " abends" + wochentag + "</b></td></tr>"
                 else:
                     if self.radioButtonPrioritaetMorgens.isChecked():
-                        text += "<tr><td><b>Von</b></td><td><b>Bis</b></td><td><b>Dosis</b></td><td><b>Einnahmevorschlag morgens</b></td></tr>"
+                        text += "<tr><td><b>Von</b></td><td><b>Bis</b></td><td><b>Dosis</b></td><td><b>" + taeglichWoechentlich + "<br />" + verabreichungsart + " morgens" + wochentag + "</b></td></tr>"
                     else:
-                        text += "<tr><td><b>Von</b></td><td><b>Bis</b></td><td><b>Dosis</b></td><td><b>Einnahmevorschlag abends</b></td></tr>"
+                        text += "<tr><td><b>Von</b></td><td><b>Bis</b></td><td><b>Dosis</b></td><td><b>" + taeglichWoechentlich + "<br />" + verabreichungsart + " abends" + wochentag + "</b></td></tr>"
                 j = 0
                 for zeile in dosierungsplan.getDosierungsplan():
                     dosierungsplanzeile = zeile.getDosierungsplanzeile()
-                    evMorgens = MainWindow.getEinnahmevorschriftHtmlFormatiert(dosierungsplanzeile["einnahmevorschriftenMorgens"], einheit.value)
-                    evAbends = MainWindow.getEinnahmevorschriftHtmlFormatiert(dosierungsplanzeile["einnahmevorschriftenAbends"], einheit.value)
+                    evMorgens = MainWindow.getEinnahmevorschriftHtmlFormatiert(dosierungsplanzeile["einnahmevorschriftenMorgens"], einheit.value, applikationsart != class_enums.Applikationsart.SPRITZE)
+                    evAbends = MainWindow.getEinnahmevorschriftHtmlFormatiert(dosierungsplanzeile["einnahmevorschriftenAbends"], einheit.value, applikationsart != class_enums.Applikationsart.SPRITZE)
                     if applikationsart == class_enums.Applikationsart.TROPFEN:
-                            evMorgens = evMorgens.replace("x " + self.lineEditDosisProEinheit[0].text() + " " + einheit.value, "Tropfen")
-                            evAbends = evAbends.replace("x " + self.lineEditDosisProEinheit[0].text() + " " + einheit.value, "Tropfen")
+                        evMorgens = dosierungsplanzeile["einnahmevorschriftenMorgens"][0].replace("x " + self.lineEditDosisProEinheit[0].text(), applikationsart.value).replace(",0", "")
+                        if len(dosierungsplanzeile["einnahmevorschriftenAbends"]) > 0:
+                            evAbends = dosierungsplanzeile["einnahmevorschriftenAbends"][0].replace("x " + self.lineEditDosisProEinheit[0].text(), applikationsart.value).replace(",0", "")
+                    elif applikationsart == class_enums.Applikationsart.SPRITZE:
+                        evMorgens = evMorgens.replace("x", "Spritzen mit")
+                        while evMorgens.find("1 Spritzen") != -1:
+                            nPosition = evMorgens.find("1 Spritzen") + 9
+                            evMorgens = evMorgens[0:nPosition] + evMorgens[nPosition + 1:]
+                        if len(dosierungsplanzeile["einnahmevorschriftenAbends"]) > 0:
+                            evAbends = evAbends.replace("x", "Spritzen mit")
+                            while evAbends.find("1 Spritzen") != -1:
+                                nPosition = evAbends.find("1 Spritzen") + 9
+                                evAbends = evAbends[0:nPosition] + evAbends[nPosition + 1:]
                     if j < len(dosierungsplan.getDosierungsplan()) - 1:
                         if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
                             text += "<tr><td>" + dosierungsplanzeile["von"] + "</td><td>" + dosierungsplanzeile["bis"] + "</td><td>" + dosierungsplanzeile["tagesdosis"] + " " + einheit.value + "</td><td>" + evMorgens + "</td><td>" + evAbends + "</td></tr>"
@@ -1123,21 +1187,36 @@ class MainWindow(QMainWindow):
                             text += "<td colspan='" + colspan + "'>" + dosis + "</td>"
                         else:
                             if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
-                                text += "<td>" + dosis + "</td><td>" + evMorgens + "</td><td>" + evAbends + "</td></tr>"
+                                text += "<td>" + dosis + " " + einheit.value + "</td><td>" + evMorgens + "</td><td>" + evAbends + "</td></tr>"
                             else:
-                                text += "<td>" + dosis + "</td><td>" + evMorgens + "</td></tr>"
+                                text += "<td>" + dosis + " " + einheit.value + "</td><td>" + evMorgens + "</td></tr>"
                     j += 1
                 text += "</table>"
+                # Freitext
+                if self.textEditFreitext.toPlainText() != "":
+                    freitextUeberschrift = "Hinweis"
+                    hinweistext = self.textEditFreitext.toPlainText()
+                    if self.textEditFreitext.toPlainText().find("//") != -1:
+                        freitextUeberschrift = self.textEditFreitext.toPlainText().split("//")[0]
+                        hinweistext = self.textEditFreitext.toPlainText().split("//")[1]
+                    text += "<div style='margin-top:10px;font-weight:normal'><b>" + freitextUeberschrift + ":</b><br />" + hinweistext.replace("\n", "\u003cbr /\u003e") + "</div>"
                 # Gesamtmengenangaben
+                bisDatumString = dosierungsplan.getDosierungsplan()[len(dosierungsplan.getDosierungsplan()) - 1].getDosierungsplanzeile()["bis"]
+                bisDatumJahr = int(bisDatumString[-4:])
+                bisDatumMonat = int(bisDatumString[3:5])
+                bisDatumTag = int(bisDatumString[:2])
+                bisDatum = datetime.datetime(bisDatumJahr, bisDatumMonat, bisDatumTag)
                 text += "<table style='margin-top:10px;border:none;border-collapse:collapse'>"
-                text +=" <tr><td colspan='2'><b>" + self.lineEditMediName.text() + "-Verbrauch ab " + datetime.date.today().strftime("%d.%m.%Y") + ":</b></td></tr>"
-                tablettenGesamtmengen = dosierungsplan.getApplikationsgesamtmengen()
-                if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
+                text +=" <tr><td colspan='2'><b>" + self.lineEditMediName.text() + "-Verbrauch bis " + bisDatum.strftime("%d.%m.%Y") + ":</b></td></tr>"
+                tablettenGesamtmengen = dosierungsplan.getApplikationsgesamtmengen(self.checkBoxWoechentlicheEinnahme.isChecked())
+                if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT) or gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDTPSEUDO):
                     for tablette in tablettenGesamtmengen:
                         if applikationsart == class_enums.Applikationsart.TABLETTE:
                             text += "<tr style='font-weight:normal'><td>" + str(tablette).replace(".", ",") + " " + einheit.value + ":</td><td style='text-align:right'>" + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück</td></tr>"
                         elif applikationsart == class_enums.Applikationsart.TROPFEN:
-                            text += "<tr style='font-weight:normal'><td>" + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Tropfen (" + str(tablettenGesamtmengen[tablette] * float(tablette)).replace(".",",") + " " + einheit.value + ")"
+                            text += "<tr style='font-weight:normal'><td>" + str(tablettenGesamtmengen[tablette]).replace(".",",").replace(",0", "") + " Tropfen (" + str(tablettenGesamtmengen[tablette] * float(tablette)).replace(".",",") + " " + einheit.value + ")"
+                        elif applikationsart == class_enums.Applikationsart.SPRITZE:
+                            text += "<tr style='font-weight:normal'><td>" + str(tablette).replace(".", ",") + " " + einheit.value + "-Spritzen:</td><td style='text-align:right'>" + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück</td></tr>"
                 else:
                     text+= "<tr><td colspan='2' style='font-weight:normal;color:rgb(200,0,0)'>Für diese Funktion ist eine gültige LANR/Lizenzschlüsselkombination erforderlich.</td></tr>"
                 text += "</table>"
@@ -1147,33 +1226,37 @@ class MainWindow(QMainWindow):
                     self.pushButtonSenden.setEnabled(True)
 
     @staticmethod
-    def getEinnahmevorschriftHtmlFormatiert(einnahmevorschriften:list, einheit:str):
-        for i in range(len(einnahmevorschriften)):
-            if einnahmevorschriften[i] != "":
-                einnahmevorschriften[i] += " " + einheit
-        formatiert = str.join(" und<br />", einnahmevorschriften)
+    def getEinnahmevorschriftHtmlFormatiert(einnahmevorschriften:list, einheit:str, bruchdarstellung:bool):
+        einnahmevorschriftenKopie = einnahmevorschriften.copy()
+        for i in range(len(einnahmevorschriftenKopie)):
+            if einnahmevorschriftenKopie[i] != "":
+                einnahmevorschriftenKopie[i] += " " + einheit
+        formatiert = str.join(" und<br />", einnahmevorschriftenKopie)
         formatiert = formatiert.replace(",0", "")
-        formatiert = formatiert.replace("0,5", "\u00bd")
-        formatiert = formatiert.replace(",5", "\u00bd")
-        formatiert = formatiert.replace("0,25", "\u00bc")
-        formatiert = formatiert.replace(",25", "\u00bc")
-        formatiert = formatiert.replace("0,75", "\u00be")
-        formatiert = formatiert.replace(",75", "\u00be")
+        if bruchdarstellung:
+            formatiert = formatiert.replace("0,5", "\u00bd")
+            formatiert = formatiert.replace(",5", "\u00bd")
+            formatiert = formatiert.replace("0,25", "\u00bc")
+            formatiert = formatiert.replace(",25", "\u00bc")
+            formatiert = formatiert.replace("0,75", "\u00be")
+            formatiert = formatiert.replace(",75", "\u00be")
         return formatiert
     
     @staticmethod
-    def getEinnahmevorschriftFpdfFormatiert(einnahmevorschriften:list, einheit:str):
-        for i in range(len(einnahmevorschriften)):
-            if einnahmevorschriften[i] != "":
-                einnahmevorschriften[i] += " " + einheit
-        formatiert = str.join(" und\n", einnahmevorschriften)
+    def getEinnahmevorschriftFpdfFormatiert(einnahmevorschriften:list, einheit:str, bruchdarstellung:bool):
+        einnahmevorschriftenKopie = einnahmevorschriften.copy()
+        for i in range(len(einnahmevorschriftenKopie)):
+            if einnahmevorschriftenKopie[i] != "":
+                einnahmevorschriftenKopie[i] += " " + einheit
+        formatiert = str.join(" und\n", einnahmevorschriftenKopie)
         formatiert = formatiert.replace(",0", "")
-        formatiert = formatiert.replace("0,5", "\u00bd")
-        formatiert = formatiert.replace(",5", "\u00bd")
-        formatiert = formatiert.replace("0,25", "\u00bc")
-        formatiert = formatiert.replace(",25", "\u00bc")
-        formatiert = formatiert.replace("0,75", "\u00be")
-        formatiert = formatiert.replace(",75", "\u00be")
+        if bruchdarstellung:
+            formatiert = formatiert.replace("0,5", "\u00bd")
+            formatiert = formatiert.replace(",5", "\u00bd")
+            formatiert = formatiert.replace("0,25", "\u00bc")
+            formatiert = formatiert.replace(",25", "\u00bc")
+            formatiert = formatiert.replace("0,75", "\u00be")
+            formatiert = formatiert.replace(",75", "\u00be")
         return formatiert
 
 
@@ -1204,13 +1287,21 @@ class MainWindow(QMainWindow):
             pdf.cell(0,6, erstelltAmText, align="C", new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("helvetica", "", 14)
             pdf.cell(0, 10, "", new_x="LMARGIN", new_y="NEXT")
+            taeglichWoechentlich = "Tägliche "
+            wochentag = ""
+            verabreichungsart = "Einnahme"
+            if self.checkBoxWoechentlicheEinnahme.isChecked():
+                taeglichWoechentlich = "Wöchentliche "
+                wochentag = "\n" + self.comboBoxWochentag.currentText()
+            if applikationsart == class_enums.Applikationsart.SPRITZE:
+                verabreichungsart = "Gabe"
             if self.radioButtonPrioritaetMorgens.isChecked():
-                titelzeile = ["Von", "Bis", "Dosis", "Einnahmevorschlag morgens"]
+                titelzeile = ["Von", "Bis", "Dosis", taeglichWoechentlich + "\n" + verabreichungsart + " morgens" + wochentag]
             else:
-                titelzeile = ["Von", "Bis", "Dosis", "Einnahmevorschlag abends"]
+                titelzeile = ["Von", "Bis", "Dosis", taeglichWoechentlich + "\n" + verabreichungsart + " abends" + wochentag]
             colWidths = (15,15,20,50)
             if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
-                titelzeile = ["Von", "Bis", "Dosis", "Einnahmevorschlag morgens", "Einnahmevorschlag abends"]
+                titelzeile = ["Von", "Bis", "Dosis", taeglichWoechentlich + "\n" + verabreichungsart + " morgens" + wochentag, taeglichWoechentlich + "\n" + verabreichungsart + " abends" + wochentag]
                 colWidths = (15,15,20,25,25)
             with pdf.table(v_align=enums.VAlign.T, line_height=1.5 * pdf.font_size, cell_fill_color=(230,230,230), cell_fill_mode="ROWS", col_widths=colWidths) as table: # type: ignore
                 pdf.set_font("helvetica", "B", 12)
@@ -1221,11 +1312,21 @@ class MainWindow(QMainWindow):
                 j = 0
                 for zeile in dosierungsplan.getDosierungsplan():
                     dosierungsplanzeile = zeile.getDosierungsplanzeile()
-                    evMorgens = MainWindow.getEinnahmevorschriftFpdfFormatiert(dosierungsplanzeile["einnahmevorschriftenMorgens"], einheit.value)
-                    evAbends = MainWindow.getEinnahmevorschriftFpdfFormatiert(dosierungsplanzeile["einnahmevorschriftenAbends"], einheit.value)
+                    evMorgens = MainWindow.getEinnahmevorschriftFpdfFormatiert(dosierungsplanzeile["einnahmevorschriftenMorgens"], einheit.value, applikationsart != class_enums.Applikationsart.SPRITZE)
+                    evAbends = MainWindow.getEinnahmevorschriftFpdfFormatiert(dosierungsplanzeile["einnahmevorschriftenAbends"], einheit.value, applikationsart != class_enums.Applikationsart.SPRITZE)
                     if applikationsart == class_enums.Applikationsart.TROPFEN:
-                            evMorgens = evMorgens.replace("x " + self.lineEditDosisProEinheit[0].text() + " " + einheit.value, "Tropfen")
-                            evAbends = evAbends.replace("x " + self.lineEditDosisProEinheit[0].text() + " " + einheit.value, "Tropfen")
+                        evMorgens = evMorgens.replace("x " + self.lineEditDosisProEinheit[0].text() + " " + einheit.value, "Tropfen")
+                        evAbends = evAbends.replace("x " + self.lineEditDosisProEinheit[0].text() + " " + einheit.value, "Tropfen")
+                    elif applikationsart == class_enums.Applikationsart.SPRITZE:
+                        evMorgens = evMorgens.replace("x", "Spritzen mit")
+                        while evMorgens.find("1 Spritzen") != -1:
+                            nPosition = evMorgens.find("1 Spritzen") + 9
+                            evMorgens = evMorgens[0:nPosition] + evMorgens[nPosition + 1:]
+                        if len(dosierungsplanzeile["einnahmevorschriftenAbends"]) > 0:
+                            evAbends = evAbends.replace("x", "Spritzen mit")
+                            while evAbends.find("1 Spritzen") != -1:
+                                nPosition = evAbends.find("1 Spritzen") + 9
+                                evAbends = evAbends[0:nPosition] + evAbends[nPosition + 1:]
                     row = table.row()
                     if j < len(dosierungsplan.getDosierungsplan()) - 1:
                         row.cell(text=dosierungsplanzeile["von"])
@@ -1246,6 +1347,18 @@ class MainWindow(QMainWindow):
                             if evAbends != "":
                                 row.cell(text=evAbends)
                     j += 1
+            # Freitext
+            if self.textEditFreitext.toPlainText() != "":
+                freitextUeberschrift = "Hinweis"
+                hinweistext = self.textEditFreitext.toPlainText()
+                if self.textEditFreitext.toPlainText().find("//") != -1:
+                    freitextUeberschrift = self.textEditFreitext.toPlainText().split("//")[0]
+                    hinweistext = self.textEditFreitext.toPlainText().split("//")[1]
+                pdf.cell(0, 4, new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("helvetica", "B", 12)
+                pdf.cell(0, 6, freitextUeberschrift + ":", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("helvetica", "", 12)
+                pdf.multi_cell(0, 6, hinweistext, new_x="LMARGIN", new_y="NEXT",)
             pdf.set_y(-30)
             pdf.set_font("helvetica", "I", 10)
             pdf.cell(0, 10, "Generiert von DosisGDT V" + self.version + " (\u00a9 GDT-Tools " + str(datetime.date.today().year) + ")", align="R")
@@ -1280,14 +1393,22 @@ class MainWindow(QMainWindow):
                 dosierungsplanzeile = zeile.getDosierungsplanzeile()
                 gd.addZeile("6228", dosierungsplanzeile["von"] + " - " + dosierungsplanzeile["bis"] + ": " + dosierungsplanzeile["tagesdosis"])
             gd.addZeile("6228", "")
-            gd.addZeile("6228", self.lineEditMediName.text() + "-Verbrauch ab " + untdatDatetime.strftime("%d.%m.%Y") + ":")
-            tablettenGesamtmengen = dosierungsplan.getApplikationsgesamtmengen()
+            # Gesamtmengen
+            bisDatumString = dosierungsplan.getDosierungsplan()[len(dosierungsplan.getDosierungsplan()) - 1].getDosierungsplanzeile()["bis"]
+            bisDatumJahr = int(bisDatumString[-4:])
+            bisDatumMonat = int(bisDatumString[3:5])
+            bisDatumTag = int(bisDatumString[:2])
+            bisDatum = datetime.datetime(bisDatumJahr, bisDatumMonat, bisDatumTag)
+            gd.addZeile("6228", self.lineEditMediName.text() + "-Verbrauch bis " + bisDatum.strftime("%d.%m.%Y") + ":")
+            tablettenGesamtmengen = dosierungsplan.getApplikationsgesamtmengen(self.checkBoxWoechentlicheEinnahme.isChecked())
             if gdttoolsL.GdtToolsLizenzschluessel.lizenzErteilt(self.lizenzschluessel, self.lanr, gdttoolsL.SoftwareId.DOSISGDT):
                 for tablette in tablettenGesamtmengen:
                     if applikationsart == class_enums.Applikationsart.TABLETTE:
                         gd.addZeile("6228", tablette + " " + einheit.value + ": " + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück")
                     elif applikationsart == class_enums.Applikationsart.TROPFEN:
                         gd.addZeile("6228",  str(tablettenGesamtmengen[tablette]).replace(".",",") + " Tropfen (" + str(tablettenGesamtmengen[tablette] * float(tablette)).replace(".",",") + " " + einheit.value + ")")
+                    elif applikationsart == class_enums.Applikationsart.SPRITZE:
+                        gd.addZeile("6228", str(tablette).replace(".", ",") + " " + einheit.value + "-Spritzen: " + str(tablettenGesamtmengen[tablette]).replace(".",",") + " Stück")
             # GDT-Datei exportieren
             if not gd.speichern(self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt", self.zeichensatz):
                 logger.logger.error("Fehler bei GDT-Dateiexport nach " + self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt")

@@ -15,7 +15,7 @@ class Dosierungsplan:
         self.startDosis = startDosis
         self.startDatum = startDatum
         self.startZeitraum = startZeitraum
-        self.aenderungsanweisungen = [] # Liste von {reduktionUm:float, reduktionFuer:int, reduktionAuf:float}
+        self.aenderungsanweisungen = [] # Liste von {aenderungUm:float, aenderungFuer:int, aenderungAuf:float}
         self.anzahlTagesdosen = anzahlTagesdosen
         self.dosisTeilWichtung = dosisTeilWichtung
         self.einschleichen = einschleichen
@@ -35,7 +35,12 @@ class Dosierungsplan:
         bisherigeTagesdosen = [{"0" : 0} for i in range(self.anzahlTagesdosen.value)]
         tempEinnahmeVorschrift = Dosierungsplan.getNeueEinnahmevorschrift(self.applikationsliste, bisherigeTagesdosen, aktuelleDosis, True, self.dosisTeilWichtung)
         self.dosierungsplan.append(class_tageseinnahme.Dosisierungsplanzeile(aktuellVon, aktuellBis, tempEinnahmeVorschrift))
+        aederungsnummer = 0
         for aenderungsanweisung in self.aenderungsanweisungen:
+            try:
+                class_tablette.getOptimaleMengen(aenderungsanweisung["aenderungAuf"], self.applikationsliste, True)
+            except class_tablette.OptimaleMengenFehler as e:
+                raise DosierungsplanFehler("Die in der " + str(aederungsnummer + 1) + ". Änderungsanweisung genannte Zieldosis " + str(aenderungsanweisung["aenderungAuf"]).replace(".", ",") + " kann aus den zur Verfügung stehenden Darreichungsformen nicht hergestellt werden.")
             if self.einschleichen:
                 while aktuelleDosis < aenderungsanweisung["aenderungAuf"]:
                     aktuellVon = aktuellBis + datetime.timedelta(days=1)
@@ -50,50 +55,58 @@ class Dosierungsplan:
                     aktuelleDosis -= aenderungsanweisung["aenderungUm"]
                     tempEinnahmeVorschrift = Dosierungsplan.getNeueEinnahmevorschrift(self.applikationsliste, tempEinnahmeVorschrift, aenderungsanweisung["aenderungUm"], self.einschleichen, self.dosisTeilWichtung)
                     self.dosierungsplan.append(class_tageseinnahme.Dosisierungsplanzeile(aktuellVon, aktuellBis, tempEinnahmeVorschrift))
+            if aktuelleDosis != aenderungsanweisung["aenderungAuf"]:
+                raise DosierungsplanFehler("Die Dosis " + str(aenderungsanweisung["aenderungAuf"]).replace(".", ",") + " kann mit der " + str(aederungsnummer + 1) + ". Änderungsanweisung nicht erreicht werden.")
+            aederungsnummer += 1
 
     def getDosierungsplan(self):
         return self.dosierungsplan
     
-    def getApplikationsgesamtmengen(self):
+    def getApplikationsgesamtmengen(self, woechentlich:bool):
         """
-        Gibt die Applikationsgesamtmengen  zurück
+        Gibt die Applikationsgesamtmengen zurück
+        Parameter:
+            woechentlich:bool, wöchentliche Einnahme
         Return:
             Dict mit key: dosis (str) und value menge (float)
         """
         applikationen = {}
+        zeilennummer = 0
+        wochentlichteiler = 1
+        if woechentlich:
+            wochentlichteiler = 7
         for zeile in self.dosierungsplan:
-            dosierungsplanzeile = zeile.getDosierungsplanzeile()
-            evMorgens = dosierungsplanzeile["einnahmevorschriftenMorgens"]
-            evAbends = dosierungsplanzeile["einnahmevorschriftenAbends"]
-            tage = 0
-            for evm in evMorgens:
-                if " x " in evm:
-                    tage = (zeile.getBis() - zeile.getVon()).days + 1
-                    menge = evm.split(" x ")[0].replace(",", ".")
-                    dosis = evm.split(" x ")[1].replace(",", ".")
-                    if not dosis in applikationen:
-                        applikationen[dosis] = float(menge) * tage
-                    else:
-                        applikationen[dosis] += float(menge) * tage
-            for evm in evAbends:
-                if " x " in evm:
-                    menge = evm.split(" x ")[0].replace(",", ".")
-                    dosis = evm.split(" x ")[1].replace(",", ".")
-                    if not dosis in applikationen:
-                        applikationen[dosis] = float(menge) * tage
-                    else:
-                        applikationen[dosis] += float(menge) * tage
+            if zeilennummer < len(self.dosierungsplan) - 1: # Letzte Dosierungsanweisung wird bei der Berechnung ignoriert
+                dosierungsplanzeile = zeile.getDosierungsplanzeile()
+                evMorgens = dosierungsplanzeile["einnahmevorschriftenMorgens"]
+                evAbends = dosierungsplanzeile["einnahmevorschriftenAbends"]
+                tage = 0
+                for evm in evMorgens:
+                    if " x " in evm:
+                        tage = (zeile.getBis() - zeile.getVon()).days + 1
+                        menge = evm.split(" x ")[0].replace(",", ".")
+                        dosis = evm.split(" x ")[1].replace(",", ".")
+                        if not dosis in applikationen:
+                            applikationen[dosis] = float(menge) / wochentlichteiler * tage
+                        else:
+                            applikationen[dosis] += float(menge) / wochentlichteiler* tage
+                for evm in evAbends:
+                    if " x " in evm:
+                        menge = evm.split(" x ")[0].replace(",", ".")
+                        dosis = evm.split(" x ")[1].replace(",", ".")
+                        if not dosis in applikationen:
+                            applikationen[dosis] = float(menge) / wochentlichteiler  * tage
+                        else:
+                            applikationen[dosis] += float(menge) / wochentlichteiler  * tage
         return applikationen
-
-
 
     @staticmethod
     def getNeueEinnahmevorschrift(zurVerfuegungStehendeApplikationen:list, bisherigeTagesdosen:list, aenderungUm:float, einschleichen:bool, dosisTeilwichtung:class_enums.DosisteilWichtung):
         """
         Gibt eine neue Einnahmevorschrift zurück
         Parameter: 
-            zurVerfuegungStehendeApplikationen:list von class_applikation:Applikation
-            bisherigeTagesdosen:dict von Tagesdosen mit key:Applikationsmenge, value: Anzahl
+            zurVerfuegungStehendeApplikationen:list von class_tablette:Applikation
+            bisherigeTagesdosen:list von dictionaries von Tagesdosen mit key:Applikationsmenge, value: Anzahl
             aenderungUm:float
             einschleichen:bool
             dosisTeilwichtung:class_enums.DosisteilWichtung
@@ -107,7 +120,7 @@ class Dosierungsplan:
             einschleichfaktor = -1
         neueEinnahmevorschrift = []
         anzahlTagesdosen = len(bisherigeTagesdosen)
-        if anzahlTagesdosen == 1:
+        if anzahlTagesdosen == 1: # einmal tägliche Einnahme
             dosisTag = 0
             tagDosen = bisherigeTagesdosen[0]
             for tagDosis in tagDosen:
