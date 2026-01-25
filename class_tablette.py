@@ -156,7 +156,6 @@ def getOptimaleMengen(gewuenschteDosis:float, tabletten:list, mitVielfachenEiner
     dosisGefunden = False
     try:
         while not dosisGefunden and naechstKleinereMengeNummer < len(getNaechstKleinereMengen(verfuegbareMengen, tempDosis)): 
-            # logger: print("tempDosis: {0}, naechstKleinereMengeNummer: {1}, ergebnis: {2}".format(tempDosis, naechstKleinereMengeNummer, mengenVerfuegbar(verfuegbareMengen, tempDosis, naechstKleinereMengeNummer)))
             if mengenZurDosisherstellungVerfuegbar(verfuegbareMengen, tempDosis, naechstKleinereMengeNummer) == 0:
                 # Liste optimaler Mengen füllen
                 try:
@@ -164,7 +163,6 @@ def getOptimaleMengen(gewuenschteDosis:float, tabletten:list, mitVielfachenEiner
                 except NaechstKleinereMengenFehler as e:
                     raise OptimaleMengenFehler("NächstkleinereMengenFehler in getOptimale Mengen 1: " + e.message)
                 moeglicheMengen = getMoeglicheMengenAusTablettenliste(tabletten, mitVielfachenEinerMenge)[nkm]
-                # logger: print("Tempdosis: {0}, nkm: {1}, moeglicheMengen: {2}".format(tempDosis, nkm, moeglicheMengen))
                 if float(nkm) in moeglicheMengen: # Ganze Tablette für Menge vorhanden
                     teileJeTablette.append((1, moeglicheMengen[moeglicheMengen.index(float(nkm))]))
                 else: # Keine ganze Tablette für Menge vorhanden

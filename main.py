@@ -150,6 +150,10 @@ class MainWindow(QMainWindow):
             freitext = ""
             if dosierungsplanElement.find("freitext") != None:
                 freitext = str(dosierungsplanElement.findtext("freitext"))
+            # Ab 1.5.0
+            kommentar = ""
+            if dosierungsplanElement.find("kommentar") != None:
+                kommentar = str(dosierungsplanElement.findtext("kommentar"))
 
             self.lineEditMediName.setText(medikamentenname)
             self.comboBoxMediEinheit.setCurrentText(einheit.value)
@@ -173,6 +177,7 @@ class MainWindow(QMainWindow):
             self.radioButtonPrioritaetAbends.setChecked(prioritaet == 1)
             self.checkBoxWoechentlicheEinnahme.setChecked(woechentlicheEinnahme)
             self.textEditFreitext.setText(freitext)
+            self.lineEditKommentar.setText(kommentar)
             self.setStatusMessage("Vorlage " + os.path.basename(xmlDateipdad) + " geladen")
             logger.logger.info("Eingabeformular vor-ausgefüllt")
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -386,6 +391,10 @@ class MainWindow(QMainWindow):
         self.vorname = "-"
         self.nachname = "-"
         self.gebdat = "-"
+        self.groesse = "-"
+        self.groesseFloat = 0.0
+        self.gewicht = "-"
+        self.gewichtFloat = 0.0
         mbErg = QMessageBox.StandardButton.Yes
         try:
             # Prüfen, ob PVS-GDT-ID eingetragen
@@ -396,8 +405,18 @@ class MainWindow(QMainWindow):
             self.patId = str(gd.getInhalt("3000"))
             self.vorname = str(gd.getInhalt("3102"))
             self.nachname = str(gd.getInhalt("3101"))
-            gd = str(gd.getInhalt("3103"))
-            self.gebdat = gd[0:2] + "." + gd[2:4] + "." + gd[4:8]
+            geburtsdatum = str(gd.getInhalt("3103"))
+            self.gebdat = geburtsdatum[0:2] + "." + geburtsdatum[2:4] + "." + geburtsdatum[4:8]
+            self.groesse = str(gd.getInhalt("3622")).replace(",", ".")
+            self.gewicht = str(gd.getInhalt("3623")).replace(",", ".")
+            patternDezimalzahl = r"^\d+([,.]\d+)?$"
+            if re.match(patternDezimalzahl, self.groesse) != None:
+                self.groesseFloat = float(self.groesse)
+            if re.match(patternDezimalzahl, self.gewicht) != None:
+                self.gewichtFloat = int(self.gewicht)
+            # Größe ggf in cm wandeln
+            if self.groesseFloat < 3:
+                self.groesseFloat *= 100
             logger.logger.info("PatientIn " + self.vorname + " " + self.nachname + " (ID: " + self.patId + ") geladen")
             ## Nur mit Lizenz
             if self.pseudoLizenzId != "":
@@ -455,6 +474,10 @@ class MainWindow(QMainWindow):
             self.comboBoxMediDarreichungsform.currentIndexChanged.connect(self.pushButtonPlanSendenDisable) 
             labelDosierungTeilbarkeit = QLabel("Dosierungen und Teilbarkeit")
             labelDosierungTeilbarkeit.setFont(self.fontNormal)
+            self.pushButtonMedikamentZuruecksetzen = QPushButton("Zurücksetzen")
+            self.pushButtonMedikamentZuruecksetzen.setFont(self.fontNormal)
+            self.pushButtonMedikamentZuruecksetzen.setToolTip("Medikament zurücksetzen")
+            self.pushButtonMedikamentZuruecksetzen.clicked.connect(self.pushButtonMedikamentZuruecksetzenClicked)
             self.lineEditDosisProEinheit = []
             self.labelEinheitProDarreichungsform = []
             self.comboBoxDosisTeilbarkeit= []
@@ -479,7 +502,8 @@ class MainWindow(QMainWindow):
             medikamentLayout.addWidget(self.lineEditMediName, 1, 0, 1, 3)
             medikamentLayout.addWidget(self.comboBoxMediEinheit, 1, 3)
             medikamentLayout.addWidget(self.comboBoxMediDarreichungsform, 1, 4)
-            medikamentLayout.addWidget(labelDosierungTeilbarkeit, 2, 0, 1, 3)
+            medikamentLayout.addWidget(labelDosierungTeilbarkeit, 2, 0, 1, 2)
+            medikamentLayout.addWidget(self.pushButtonMedikamentZuruecksetzen, 2, 4, 1, 1)
             for i in range(self.maxDosenProEinheit):
                 medikamentLayout.addWidget(self.lineEditDosisProEinheit[i], i + 3, 0)
                 medikamentLayout.addWidget(self.labelEinheitProDarreichungsform[i], i + 3, 1)
@@ -498,6 +522,7 @@ class MainWindow(QMainWindow):
             self.radioButtonEinschleichen.clicked.connect(self.pushButtonPlanSendenDisable) 
             self.pushButtonFormularZuruecksetzen = QPushButton("Zurücksetzen")
             self.pushButtonFormularZuruecksetzen.setFont(self.fontNormal)
+            self.pushButtonFormularZuruecksetzen.setToolTip("Dosierungsplan zurücksetzen")
             self.pushButtonFormularZuruecksetzen.clicked.connect(self.pushButtonFormularZuruecksetzenClicked)
             buttonGroupEinAusschleichen = QButtonGroup(groupBoxDosierungsplan)
             buttonGroupEinAusschleichen.addButton(self.radioButtonAusschleichen, 0)
@@ -580,11 +605,20 @@ class MainWindow(QMainWindow):
             self.comboBoxWochentag.setFont(self.fontNormal)
             self.comboBoxWochentag.addItems(["jeden Montag", "jeden Dienstag", "jeden Mittwoch", "jeden Donnerstag", "jeden Freitag", "jeden Samstag", "jeden Sonntag"])
             self.comboBoxWochentag.setEnabled(False)
+            labelHinweisFreitext = QLabel("Hinweisfreitext\n(erscheint auf Dosierungsplan)")
+            labelHinweisFreitext.setFont(self.fontNormal)
             self.textEditFreitext = QTextEdit()
             self.textEditFreitext.setFont(self.fontNormal)
             self.textEditFreitext.setFixedHeight(self.fontNormal.pointSize() * 2 + 16)
             self.textEditFreitext.textChanged.connect(self.pushButtonPlanSendenDisable)
             self.textEditFreitext.setPlaceholderText("Freitext für z. B. Einnahmehinweise [Überschrift (Standard: Hinweis)//Text]")
+            labelKommentar = QLabel("Kommentar\n(erscheint nur im PVS)")
+            labelKommentar.setFont(self.fontNormal)
+            labelKommentar.setToolTip("PVS: Praxisverwaltungssystem")
+            labelKommentar.setCursor(Qt.CursorShape.WhatsThisCursor)
+            self.lineEditKommentar = QLineEdit()
+            self.lineEditKommentar.setFont(self.fontNormal)
+            self.lineEditKommentar.textChanged.connect(self.pushButtonPlanSendenDisable)
 
             self.dosierungsplanLayout.addWidget(self.radioButtonAusschleichen, 0, 0, 1, 4)
             self.dosierungsplanLayout.addWidget(self.radioButtonEinschleichen, 0, 4, 1, 3)
@@ -610,7 +644,10 @@ class MainWindow(QMainWindow):
             self.dosierungsplanLayout.addWidget(self.radioButtonPrioritaetAbends, self.maxDosierungsplanAnweisungen + 2, 6, 1, 3)
             self.dosierungsplanLayout.addWidget(self.checkBoxWoechentlicheEinnahme, self.maxDosierungsplanAnweisungen + 3, 0, 1, 3)
             self.dosierungsplanLayout.addWidget(self.comboBoxWochentag, self.maxDosierungsplanAnweisungen + 3, 3, 1, 3)
-            self.dosierungsplanLayout.addWidget(self.textEditFreitext, self.maxDosierungsplanAnweisungen + 4, 0, 1, 9)
+            self.dosierungsplanLayout.addWidget(labelHinweisFreitext, self.maxDosierungsplanAnweisungen + 4, 0, 1, 2, Qt.AlignmentFlag.AlignTop)
+            self.dosierungsplanLayout.addWidget(self.textEditFreitext, self.maxDosierungsplanAnweisungen + 4, 2, 1, 7)
+            self.dosierungsplanLayout.addWidget(labelKommentar, self.maxDosierungsplanAnweisungen + 5, 0, 1, 2, Qt.AlignmentFlag.AlignTop)
+            self.dosierungsplanLayout.addWidget(self.lineEditKommentar, self.maxDosierungsplanAnweisungen + 5, 2, 1, 7)
             groupBoxDosierungsplan.setLayout(self.dosierungsplanLayout)
 
             # Buttons
@@ -647,22 +684,36 @@ class MainWindow(QMainWindow):
             self.lineEditNachname.setReadOnly(True)
             labelGebDat = QLabel("Geburtsdatum")
             labelGebDat.setFont(self.fontNormal)
+            labelGroesse = QLabel("Größe [cm]")
+            labelGroesse.setFont(self.fontNormal)
+            labelGewicht = QLabel("Gewicht [kg]")
+            labelGewicht.setFont(self.fontNormal)
             labelPatId = QLabel("Pat.-ID")
             labelPatId.setFont(self.fontNormal)
             self.lineEditGebdat = QLineEdit(self.gebdat)
             self.lineEditGebdat.setFont(self.fontNormal)
             self.lineEditGebdat.setReadOnly(True)
+            self.lineEditGroesse = QLineEdit("{:.1f}".format(self.groesseFloat).replace(".", ","))
+            self.lineEditGroesse.setFont(self.fontNormal)
+            self.lineEditGroesse.setReadOnly(True)
+            self.lineEditGewicht = QLineEdit("{:.1f}".format(self.gewichtFloat).replace(".", ","))
+            self.lineEditGewicht.setFont(self.fontNormal)
+            self.lineEditGewicht.setReadOnly(True)
             self.lineEditPatId = QLineEdit(self.patId)
             self.lineEditPatId.setFont(self.fontNormal)
             self.lineEditPatId.setReadOnly(True)
-            patientLayout.addWidget(labelVorname, 0, 0)
-            patientLayout.addWidget(labelNachname, 0, 1)
-            patientLayout.addWidget(self.lineEditVorname, 1, 0)
-            patientLayout.addWidget(self.lineEditNachname, 1, 1)
+            patientLayout.addWidget(labelVorname, 0, 0, 1, 2)
+            patientLayout.addWidget(labelNachname, 0, 2, 1, 2)
+            patientLayout.addWidget(self.lineEditVorname, 1, 0, 1, 2)
+            patientLayout.addWidget(self.lineEditNachname, 1, 2, 1, 2)
             patientLayout.addWidget(labelGebDat, 2, 0)
-            patientLayout.addWidget(labelPatId, 2, 1)
+            patientLayout.addWidget(labelGroesse, 2, 1)
+            patientLayout.addWidget(labelGewicht, 2, 2)
+            patientLayout.addWidget(labelPatId, 2, 3)
             patientLayout.addWidget(self.lineEditGebdat, 3, 0)
-            patientLayout.addWidget(self.lineEditPatId, 3, 1)
+            patientLayout.addWidget(self.lineEditGroesse, 3, 1)
+            patientLayout.addWidget(self.lineEditGewicht, 3, 2)
+            patientLayout.addWidget(self.lineEditPatId, 3, 3)
             groupBoxPatient.setLayout(patientLayout)
 
             # Vorschau
@@ -827,7 +878,7 @@ class MainWindow(QMainWindow):
 
     def comboBoxMediDarreichungsformIndexChanged(self, index):
         for i in range(0, self.maxDosenProEinheit):
-            self.lineEditDosisProEinheit[i].setStyleSheet(self.styleSheetWeiss)
+            # self.lineEditDosisProEinheit[i].setStyleSheet(self.styleSheetWeiss)
             self.labelEinheitProDarreichungsform[i].setText(self.comboBoxMediEinheit.currentText() + "/" + self.comboBoxMediDarreichungsform.currentText())
             if index == 0:
                 self.lineEditDosisProEinheit[i].setEnabled(True)
@@ -850,6 +901,15 @@ class MainWindow(QMainWindow):
             else:
                 self.labelDannReduktion[i].setText("Dann Steigerung um")
 
+    def pushButtonMedikamentZuruecksetzenClicked(self):
+        self.lineEditMediName.setText("")
+        self.comboBoxMediEinheit.setCurrentIndex(0)
+        self.comboBoxMediDarreichungsform.setCurrentIndex(0)
+        for i in range(self.maxDosenProEinheit):
+            self.lineEditDosisProEinheit[i].setText("")
+            self.comboBoxDosisTeilbarkeit[i].setCurrentIndex(0)
+        self.lineEditDosisProEinheit[0].setStyleSheet(self.styleSheetHellrot)
+
     def pushButtonFormularZuruecksetzenClicked(self):
         self.dateEditAb.setDate(QDate().currentDate())
         self.radioButtonAusschleichen.setChecked(True)
@@ -861,6 +921,8 @@ class MainWindow(QMainWindow):
             self.lineEditBis[i].setText("")
         self.checkBoxZweimalTaeglicheEinnahme.setChecked(False)
         self.radioButtonPrioritaetMorgens.setChecked(True)
+        self.textEditFreitext.setText("")
+        self.lineEditKommentar.setText("")
     
     # Formulareingaben prüfen
     def lineEditMediNameTextChanged(self, text):
@@ -1054,6 +1116,8 @@ class MainWindow(QMainWindow):
             woechentlicheEinnahmeElement.text = str(self.checkBoxWoechentlicheEinnahme.isChecked())
             freitextElement = ElementTree.Element("freitext")
             freitextElement.text = str(self.textEditFreitext.toPlainText()).replace("\n", "\u003cbr /\u003e")
+            kommentarElement = ElementTree.Element("kommentar")
+            kommentarElement.text = str(self.lineEditKommentar.text())
             dosierungsplanElement.append(medikamentElement)
             dosierungsplanElement.append(einschleichenElement)
             dosierungsplanElement.append(startdosisElement)
@@ -1063,6 +1127,7 @@ class MainWindow(QMainWindow):
             dosierungsplanElement.append(prioritaetElement)
             dosierungsplanElement.append(woechentlicheEinnahmeElement)
             dosierungsplanElement.append(freitextElement)
+            dosierungsplanElement.append(kommentarElement)
             et = ElementTree.ElementTree(dosierungsplanElement)
             ElementTree.indent(et)
             try:
@@ -1413,6 +1478,9 @@ class MainWindow(QMainWindow):
             if self.textEditFreitext.toPlainText() != "":
                 gd.addZeile("6330", freitextUeberschrift)
                 gd.addZeile("6331", hinweistext)
+            # Kommentar
+            if self.lineEditKommentar.text() != "":
+                gd.addZeile("6227", self.lineEditKommentar.text())
             # GDT-Datei exportieren
             if not gd.speichern(self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt", self.zeichensatz):
                 logger.logger.error("Fehler bei GDT-Dateiexport nach " + self.gdtExportVerzeichnis + "/" + self.kuerzelpraxisedv + self.kuerzeldosisgdt + ".gdt")
