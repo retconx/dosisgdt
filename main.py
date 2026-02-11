@@ -180,10 +180,10 @@ class MainWindow(QMainWindow):
             self.lineEditKommentar.setText(kommentar)
             self.setStatusMessage("Vorlage " + os.path.basename(xmlDateipdad) + " geladen")
             logger.logger.info("Eingabeformular vor-ausgefüllt")
-            self.setCursor(Qt.CursorShape.ArrowCursor)
         except Exception as e:
             mb = QMessageBox(QMessageBox.Icon.Warning, "Hinweis von DosisGDT", "Fehler beim Laden der Vorlage (" + xmlDateipdad + "): " + e.args[1], QMessageBox.StandardButton.Ok)
             mb.exec()
+        self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def __init__(self):
         super().__init__()
@@ -413,7 +413,7 @@ class MainWindow(QMainWindow):
             if re.match(patternDezimalzahl, self.groesse) != None:
                 self.groesseFloat = float(self.groesse)
             if re.match(patternDezimalzahl, self.gewicht) != None:
-                self.gewichtFloat = int(self.gewicht)
+                self.gewichtFloat = float(self.gewicht)
             # Größe ggf in cm wandeln
             if self.groesseFloat < 3:
                 self.groesseFloat *= 100
