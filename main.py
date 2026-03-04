@@ -1248,7 +1248,7 @@ class MainWindow(QMainWindow):
                             colspan = "2"
                             if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
                                 colspan = "3"
-                            dosis = "Keine Medikation mehr"
+                            dosis = "Kein " + self.lineEditMediName.text().strip()  + " mehr"
                             text += "<td colspan='" + colspan + "'>" + dosis + "</td>"
                         else:
                             if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
@@ -1398,19 +1398,20 @@ class MainWindow(QMainWindow):
                         row.cell(text=dosierungsplanzeile["bis"])
                         row.cell(text=dosierungsplanzeile["tagesdosis"] + " " + einheit.value)
                         row.cell(text=evMorgens)
-                        if evAbends != "":
-                            row.cell(text=evAbends)
+                        row.cell(text=evAbends)
                     else:
                         row.cell("Ab " + dosierungsplanzeile["von"], colspan=2)
                         dosis = dosierungsplanzeile["tagesdosis"] + " " + einheit.value
                         if dosierungsplanzeile["tagesdosis"][0:3] == "0,0":
-                            dosis = "Keine Medikation mehr"
-                            row.cell(dosis, colspan=2)
+                            colsp = 2
+                            if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
+                                colsp = 3
+                            dosis = "Kein " + self.lineEditMediName.text().strip() + " mehr"
+                            row.cell(dosis, colspan=colsp)
                         else:
                             row.cell(text=dosis)
                             row.cell(text=evMorgens)
-                            if evAbends != "":
-                                row.cell(text=evAbends)
+                            row.cell(text=evAbends)
                     j += 1
             # Freitext
             if self.textEditFreitext.toPlainText() != "":

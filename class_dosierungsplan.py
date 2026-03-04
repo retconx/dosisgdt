@@ -89,13 +89,14 @@ class Dosierungsplan:
                         if not dosis in applikationen:
                             applikationen[dosis] = float(menge) / wochentlichteiler * tage
                         else:
-                            applikationen[dosis] += float(menge) / wochentlichteiler* tage
+                            applikationen[dosis] += float(menge) / wochentlichteiler * tage
                 for evm in evAbends:
                     if " x " in evm:
+                        tage = (zeile.getBis() - zeile.getVon()).days + 1
                         menge = evm.split(" x ")[0].replace(",", ".")
                         dosis = evm.split(" x ")[1].replace(",", ".")
                         if not dosis in applikationen:
-                            applikationen[dosis] = float(menge) / wochentlichteiler  * tage
+                            applikationen[dosis] = float(menge) / wochentlichteiler * tage
                         else:
                             applikationen[dosis] += float(menge) / wochentlichteiler  * tage
         return applikationen
