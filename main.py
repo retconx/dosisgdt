@@ -1398,7 +1398,8 @@ class MainWindow(QMainWindow):
                         row.cell(text=dosierungsplanzeile["bis"])
                         row.cell(text=dosierungsplanzeile["tagesdosis"] + " " + einheit.value)
                         row.cell(text=evMorgens)
-                        row.cell(text=evAbends)
+                        if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
+                            row.cell(text=evAbends)
                     else:
                         row.cell("Ab " + dosierungsplanzeile["von"], colspan=2)
                         dosis = dosierungsplanzeile["tagesdosis"] + " " + einheit.value
@@ -1411,7 +1412,8 @@ class MainWindow(QMainWindow):
                         else:
                             row.cell(text=dosis)
                             row.cell(text=evMorgens)
-                            row.cell(text=evAbends)
+                            if self.checkBoxZweimalTaeglicheEinnahme.isChecked():
+                                row.cell(text=evAbends)
                     j += 1
             # Freitext
             if self.textEditFreitext.toPlainText() != "":
