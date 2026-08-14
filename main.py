@@ -1682,7 +1682,7 @@ class MainWindow(QMainWindow):
             programmverzeichnis = sex[:sex.rfind("dosisgdt.exe")]
         elif "darwin" in sys.platform:
             programmverzeichnis = sex[:sex.find("DosisGDT.app")]
-        elif "win32" in sys.platform:
+        elif "linux" in sys.platform:
             programmverzeichnis = sex[:sex.rfind("dosisgdt")]
         logger.logger.info("Programmverzeichnis: " + programmverzeichnis)
         try:
